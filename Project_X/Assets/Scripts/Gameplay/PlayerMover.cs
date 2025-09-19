@@ -11,6 +11,11 @@ public class PlayerMover : MonoBehaviour
     [Tooltip("1 unit = 1 tile se tile = 32px")]
     public float cellSize = 1f;
 
+    [Header("Colisão simples")]
+    [Tooltip("Camada que bloqueia movimentação de player")]
+    public LayerMask solidMask;
+    public Vector2 collisionBoxSize = new Vector2(0.9f, 0.9f);
+
     // movimentação e controle do player
     private Vector2Int gridPos;
     private InputAction moveAction;
@@ -52,15 +57,24 @@ public class PlayerMover : MonoBehaviour
 
         if (rawDir != Vector2Int.zero && heldDir == Vector2Int.zero)
         {
-            Step(rawDir);
+            TryStep(rawDir);
         }
-
         heldDir = rawDir;
     }
 
-    private void Step(Vector2Int dir)
+    private void TryStep(Vector2Int dir)
     {
-        gridPos += dir;
+        Vector2Int target = gridPos + dir;
+        if (solidMask.value != 0)
+        {
+            Vector2 worldTarget = GridToWorld(target);
+            Collider2D hit = Physics2D.OverlapBox(worldTarget, collisionBoxSize, 0f, solidMask);
+            if (hit != null)
+            {
+                return;
+            }
+        }
+        gridPos = target;
         transform.position = GridToWorld(gridPos);
     }
 
@@ -77,4 +91,13 @@ public class PlayerMover : MonoBehaviour
     {
         return new Vector3(gp.x * cellSize, gp.y * cellSize, transform.position.z);
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        if (solidMask.value == 0) return;
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireCube(transform.position, (Vector3)collisionBoxSize);
+    }
+#endif
 }
