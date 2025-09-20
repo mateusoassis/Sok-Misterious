@@ -17,7 +17,7 @@ public class PlayerMover : MonoBehaviour
     public float firstRepeatDelay = 0.25f;
     public float repeatInterval   = 0.12f;
 
-    [Header("Colisão / Push")]
+    [Header("Colisão e Push")]
     [Tooltip("Camadas que bloqueiam (ex.: Solid). A Box também deve estar nessa Layer.")]
     public LayerMask solidMask;
 
@@ -36,7 +36,7 @@ public class PlayerMover : MonoBehaviour
     private struct MoveRecord
     {
         public Vector2Int playerFrom, playerTo;
-        public BoxIdentifier box;        // null se não houve push
+        public BoxIdentifier box; // lembrar que é null se não houve push
         public Vector2Int boxFrom, boxTo;
     }
     private readonly List<MoveRecord> history = new List<MoveRecord>(256);
@@ -44,12 +44,12 @@ public class PlayerMover : MonoBehaviour
 
     private void Awake()
     {
-        // movimento (Vector2) — teclado + gamepad
+        // movimento (Vector2) -> teclado + gamepad
         moveAction = new InputAction("Move", InputActionType.Value, expectedControlType: "Vector2");
         moveAction.AddCompositeBinding("2DVector")
-            .With("Up",    "<Keyboard>/w").With("Up",    "<Keyboard>/upArrow")
-            .With("Down",  "<Keyboard>/s").With("Down",  "<Keyboard>/downArrow")
-            .With("Left",  "<Keyboard>/a").With("Left",  "<Keyboard>/leftArrow")
+            .With("Up", "<Keyboard>/w").With("Up", "<Keyboard>/upArrow")
+            .With("Down", "<Keyboard>/s").With("Down", "<Keyboard>/downArrow")
+            .With("Left", "<Keyboard>/a").With("Left", "<Keyboard>/leftArrow")
             .With("Right", "<Keyboard>/d").With("Right", "<Keyboard>/rightArrow");
         moveAction.AddBinding("<Gamepad>/dpad");
         moveAction.AddBinding("<Gamepad>/leftStick");
@@ -81,7 +81,7 @@ public class PlayerMover : MonoBehaviour
             return;
         }
 
-        // lê input e quantiza pra 4 direções (sem diagonal)
+        // lê input e transforma pra 4 direções (sem diagonal)
         Vector2 v = moveAction.ReadValue<Vector2>();
         Vector2Int rawDir = Vector2Int.zero;
         if (Mathf.Abs(v.x) > Mathf.Abs(v.y))
@@ -115,7 +115,7 @@ public class PlayerMover : MonoBehaviour
         }
     }
 
-    // movimenta 1 célula; bloqueia se parede; empurra caixa se atrás estiver livre
+    // movimenta 1 célula, bloqueia se parede, empurra caixa se atrás estiver livre
     private void TryStep(Vector2Int dir)
     {
         Vector2Int target = gridPos + dir;
@@ -127,18 +127,19 @@ public class PlayerMover : MonoBehaviour
             var hit = Physics2D.OverlapPoint(worldTarget, solidMask);
             if (hit != null)
             {
-                // É caixa?
+                // acertou caixa?
                 var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
+
+                // parede/qualquer sólido não-caixa -> bloqueia
                 if (box == null)
                 {
-                    // parede/qualquer sólido não-caixa → bloqueia
                     return;
                 }
 
-                // tentar empurrar a caixa: célula ATRÁS dela precisa estar livre
-                Vector2Int boxGrid      = WorldToGrid(box.transform.position); // <<< usa o PARÂMETRO corretamente
-                Vector2Int boxTarget    = boxGrid + dir;
-                Vector2   worldBoxTarget = GridToWorld(boxTarget);
+                // tentar empurrar a caixa, célula ATRÁS dela precisa estar livre
+                Vector2Int boxGrid = WorldToGrid(box.transform.position);
+                Vector2Int boxTarget = boxGrid + dir;
+                Vector2 worldBoxTarget = GridToWorld(boxTarget);
 
                 // checa ocupantes atrás, ignorando a PRÓPRIA caixa
                 var hitsBehind = Physics2D.OverlapPointAll(worldBoxTarget, solidMask);
@@ -165,7 +166,7 @@ public class PlayerMover : MonoBehaviour
             }
         }
 
-        // livre: passo simples + registra para UNDO
+        // player livre -> passo simples + registra para UNDO
         history.Add(new MoveRecord { playerFrom = gridPos, playerTo = target, box = null });
         gridPos = target;
         transform.position = worldTarget;
@@ -184,21 +185,21 @@ public class PlayerMover : MonoBehaviour
         gridPos = rec.playerFrom;
         transform.position = GridToWorld(gridPos);
 
-        // volta caixa (se houve push)
+        // volta caixa (se teve push)
         if (rec.box != null && rec.box.gameObject != null)
         {
             rec.box.transform.position = GridToWorld(rec.boxFrom);
         }
     }
 
-    // ---- utilitários de grid ----
+    // ---- utilitários de gridPos ----
     private void SnapToGrid()
     {
         gridPos = WorldToGrid(transform.position);
         transform.position = GridToWorld(gridPos);
     }
 
-    private Vector2Int WorldToGrid(Vector3 worldPos)   // <<< FIX: usa 'worldPos'
+    private Vector2Int WorldToGrid(Vector3 worldPos)
     {
         float inv = 1f / cellSize;
         int gx = Mathf.RoundToInt(worldPos.x * inv);
@@ -212,11 +213,13 @@ public class PlayerMover : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+
+    // desenha a célula atual (só pra referência visual)
     private void OnDrawGizmosSelected()
     {
         if (solidMask.value == 0) return;
         Gizmos.color = Color.cyan;
-        // desenha a célula atual (só referência visual)
+
         Gizmos.DrawWireCube(transform.position, Vector3.one * 0.9f);
     }
 #endif
