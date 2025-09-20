@@ -130,64 +130,71 @@ public class PlayerMover : MonoBehaviour
         }
 
         if (solidMask.value != 0)
+        {
+            // ocupante no CENTRO da célula destino?
+            var hit = Physics2D.OverlapPoint(worldTarget, solidMask);
+            if (hit != null)
             {
-                // ocupante no CENTRO da célula destino?
-                var hit = Physics2D.OverlapPoint(worldTarget, solidMask);
-                if (hit != null)
+                // acertou caixa?
+                var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
+
+                // parede/qualquer sólido não-caixa -> bloqueia
+                if (box == null)
                 {
-                    // acertou caixa?
-                    var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
-
-                    // parede/qualquer sólido não-caixa -> bloqueia
-                    if (box == null)
-                    {
-                        return;
-                    }
-
-                    // tentar empurrar a caixa, célula ATRÁS dela precisa estar livre
-                    Vector2Int boxGrid = WorldToGrid(box.transform.position);
-                    Vector2Int boxTarget = boxGrid + dir;
-                    Vector2 worldBoxTarget = GridToWorld(boxTarget);
-
-                    // bloqueio de empurrar box através de BOUNDS
-                    if (hasBounds && !lm.InsideBounds(worldBoxTarget))
-                    {
-                        return;
-                    }
-
-                    // checa ocupantes atrás, ignorando a PRÓPRIA caixa
-                    var hitsBehind = Physics2D.OverlapPointAll(worldBoxTarget, solidMask);
-                    bool behindBlocked = false;
-                    foreach (var h in hitsBehind)
-                    {
-                        if (h == null) continue;
-                        if (h.transform == box.transform || h.transform.IsChildOf(box.transform)) continue;
-                        behindBlocked = true; break;
-                    }
-                    if (behindBlocked) return;
-
-                    // registra no histórico (para UNDO)
-                    history.Add(new MoveRecord
-                    {
-                        playerFrom = gridPos,
-                        playerTo = target,
-                        box = box,
-                        boxFrom = boxGrid,
-                        boxTo = boxTarget
-                    });
-
-                    // empurra a caixa e move o player
-                    box.transform.position = worldBoxTarget;
-                    gridPos = target;
-                    transform.position = worldTarget;
                     return;
                 }
+
+                // tentar empurrar a caixa, célula ATRÁS dela precisa estar livre
+                Vector2Int boxGrid = WorldToGrid(box.transform.position);
+                Vector2Int boxTarget = boxGrid + dir;
+                Vector2 worldBoxTarget = GridToWorld(boxTarget);
+
+                // bloqueio de empurrar box através de BOUNDS
+                if (hasBounds && !lm.InsideBounds(worldBoxTarget))
+                {
+                    return;
+                }
+
+                // checa ocupantes atrás, ignorando a PRÓPRIA caixa
+                var hitsBehind = Physics2D.OverlapPointAll(worldBoxTarget, solidMask);
+                bool behindBlocked = false;
+                foreach (var h in hitsBehind)
+                {
+                    if (h == null) continue;
+                    if (h.transform == box.transform || h.transform.IsChildOf(box.transform)) continue;
+                    behindBlocked = true; break;
+                }
+                if (behindBlocked) return;
+
+                // registra no histórico (para UNDO)
+                history.Add(new MoveRecord
+                {
+                    playerFrom = gridPos,
+                    playerTo = target,
+                    box = box,
+                    boxFrom = boxGrid,
+                    boxTo = boxTarget
+                });
+
+                // empurra a caixa e move o player
+                box.transform.position = worldBoxTarget;
+                gridPos = target;
+                transform.position = worldTarget;
+
+                // HUD: isso contou como 1 Move e 1 Push
+                GameEvents.RaiseMove();
+                GameEvents.RaisePush();
+                return;
             }
+        }
 
         // player livre -> passo simples + registra para UNDO
         history.Add(new MoveRecord { playerFrom = gridPos, playerTo = target, box = null });
         gridPos = target;
         transform.position = worldTarget;
+        
+        // HUD: isso contou como 1 Move
+        GameEvents.RaiseMove();
     }
 
     // desfaz o último passo (e o empurrão, se houve)

@@ -68,21 +68,29 @@ public class LevelManager : MonoBehaviour
         var boundsObj = currentLevel.transform.Find("Bounds");
         CurrentBounds = null; // zera referência anterior
 
-        if (boundsObj != null) {
+        if (boundsObj != null)
+        {
             CurrentBounds = boundsObj.GetComponent<BoxCollider2D>();
-            if (CurrentBounds != null) {
+            if (CurrentBounds != null)
+            {
                 Bounds b = CurrentBounds.bounds;
 
                 CameraController camController = Camera.main.GetComponent<CameraController>();
-                if (camController != null) {
+                if (camController != null)
+                {
                     camController.FocusOnBounds(b);
                 }
-            } else {
+            }
+            else
+            {
                 Debug.LogWarning("[LevelManager] 'Bounds' encontrado, mas sem BoxCollider2D.");
             }
-        } else {
+        }
+        else
+        {
             Debug.LogWarning("[LevelManager] Objeto 'Bounds' não encontrado no level.");
         }
+        GameEvents.RaiseLevelLoaded();
     }
     // reiniciar nível
     public void Reload()

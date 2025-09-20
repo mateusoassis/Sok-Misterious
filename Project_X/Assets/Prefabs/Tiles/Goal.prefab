@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7886003754204519601}
   - component: {fileID: 266487329783936892}
   - component: {fileID: 6366808366119708157}
+  - component: {fileID: -6426236799180866370}
   m_Layer: 0
   m_Name: Goal
   m_TagString: Untagged
@@ -100,3 +101,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d46eea5a51e8bc42b341c2c3c1a338b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &-6426236799180866370
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5460413035514782513}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69691e063012218468e4874434523c10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  solidMask:
+    serializedVersion: 2
+    m_Bits: 64
+  sr: {fileID: 266487329783936892}
+  useTint: 1
+  unlitColor: {r: 1, g: 1, b: 1, a: 1}
+  litColor: {r: 1, g: 0.44483572, b: 0, a: 1}
+  unlitSprite: {fileID: 0}
+  litSprite: {fileID: 0}

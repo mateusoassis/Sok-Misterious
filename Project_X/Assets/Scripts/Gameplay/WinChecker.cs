@@ -8,8 +8,8 @@ public class WinChecker : MonoBehaviour
 
     // inputs para NEXT/RESTART (de teclado e gamepad)
     // x para restart, c para next map
-    private InputAction restartAction; // x
-    private InputAction nextAction; // c
+    private InputAction restartAction; // x teclado, A/sul gamepad
+    private InputAction nextAction; // c teclado, R1 gamepad
 
     private bool won;
 
@@ -29,12 +29,46 @@ public class WinChecker : MonoBehaviour
 
         restartAction.Enable();
         nextAction.Enable();
+
+        // HUD: pergunta "quantos goals faltam?"
+        GameEvents.SetGoalsLeftProvider(GetGoalsLeft);
     }
+
+    // ---------- HUD ----------
+    private int GetGoalsLeft()
+    {
+        CountGoalsAndCovered(out int total, out int covered);
+        return Mathf.Max(0, total - covered);
+    }
+    private void CountGoalsAndCovered(out int total, out int covered)
+    {
+        // Unity 2023+: use FindObjectsByType totalmente qualificado p/ evitar ambiguidade
+        var goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(UnityEngine.FindObjectsSortMode.None);
+        total = goals.Length;
+        covered = 0;
+
+        for (int i = 0; i < goals.Length; i++)
+        {
+            Vector2 p = goals[i].transform.position;
+            var hit = Physics2D.OverlapPoint(p, solidMask);
+            if (!hit) continue;
+            var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
+            if (box != null) covered++;
+        }
+    }
+    // -------------------------
 
     private void OnDestroy()
     {
         restartAction.Disable();
         nextAction.Disable();
+
+        // evita segurar referência se este WinChecker sair de cena
+        if (GameEvents.GetGoalsLeft == GetGoalsLeft)
+        {
+            GameEvents.SetGoalsLeftProvider(null);
+        }
+            
     }
     private void Update()
     {
@@ -61,7 +95,7 @@ public class WinChecker : MonoBehaviour
 
     private bool AllGoalsHaveBoxes()
     {
-        var goals = Object.FindObjectsByType<GoalIdentifier>(FindObjectsSortMode.None);
+        var goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(FindObjectsSortMode.None);
         if (goals.Length == 0)
         {
             return false;
