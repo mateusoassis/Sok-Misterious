@@ -3,8 +3,16 @@ using UnityEngine;
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance;
+
+    [Header("Level Data")]
     public LevelList levelList;
     private GameObject currentLevel;
+    public int currentIndex = -1;
+
+    // sugestão no stackoverflow para nunca perder quantos níveis tem utilizando property
+    public int LevelCount => (levelList != null && levelList.levels != null)
+    ? levelList.levels.Length
+    : 0;
 
     private void Awake()
     {
@@ -29,7 +37,7 @@ public class LevelManager : MonoBehaviour
 
     public void LoadLevel(int index)
     {
-        if (levelList == null || index < 0 || index >= levelList.levels.Length)
+        if (levelList == null || index < 0 || index >= LevelCount)
         {
             Debug.LogError("LevelManager: índice inválido ou LevelList não atribuído.");
             return;
@@ -38,11 +46,23 @@ public class LevelManager : MonoBehaviour
         if (currentLevel != null)
         {
             Destroy(currentLevel);
+            currentLevel = null;
+        }
+
+        var entry = levelList.levels[index];
+        if (entry.levelPrefab == null)
+        {
+            Debug.LogError($"[LevelManager] Prefab nulo no Level {index} ({entry.displayName})");
         }
 
         GameObject prefab = levelList.levels[index].levelPrefab;
         currentLevel = Instantiate(prefab, Vector3.zero, Quaternion.identity);
 
+        // renomear nome de nível na hierarquia com atualização de índice atual
+        currentLevel.name = $"Level_{index + 1}__{prefab.name}";
+        currentIndex = index;
+
+        // foco de câmera
         var boundsObj = currentLevel.transform.Find("Bounds");
         if (boundsObj != null)
         {
@@ -58,5 +78,40 @@ public class LevelManager : MonoBehaviour
                 }
             }
         }
+    }
+    // reiniciar nível
+    public void Reload()
+    {
+        if (currentIndex < 0)
+        {
+            Debug.LogWarning("[LevelManager] Nenhum nível carregado pra recarregar.");
+            return;
+        }
+        LoadLevel(currentIndex);
+    }
+
+    // próximo nível (caso exista)
+    public void LoadNext()
+    {
+        if (LevelCount == 0)
+        {
+            Debug.LogWarning("[LevelManager] LevelList vazio.");
+            return;
+        }
+
+        // começa no 0 se não carregou nada
+        if (currentIndex < 0)
+        {
+            LoadLevel(0);
+            return;
+        }
+
+        int next = currentIndex + 1;
+        if (next >= LevelCount)
+        {
+            Debug.Log("[LevelManager] Já está no último nível.");
+            return;
+        }
+        LoadLevel(next);
     }
 }

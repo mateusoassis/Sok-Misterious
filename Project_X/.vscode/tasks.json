@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "noop (Unity builds itself)",
+      "type": "shell",
+      "command": "echo Unity compila; não rode dotnet build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}
