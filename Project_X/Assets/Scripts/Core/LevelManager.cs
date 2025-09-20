@@ -8,6 +8,7 @@ public class LevelManager : MonoBehaviour
     public LevelList levelList;
     private GameObject currentLevel;
     public int currentIndex = -1;
+    public BoxCollider2D CurrentBounds { get; private set; }
 
     // sugestão no stackoverflow para nunca perder quantos níveis tem utilizando property
     public int LevelCount => (levelList != null && levelList.levels != null)
@@ -57,26 +58,30 @@ public class LevelManager : MonoBehaviour
 
         GameObject prefab = levelList.levels[index].levelPrefab;
         currentLevel = Instantiate(prefab, Vector3.zero, Quaternion.identity);
+        CurrentBounds = null;
 
         // renomear nome de nível na hierarquia com atualização de índice atual
-        currentLevel.name = $"Level_{index + 1}__{prefab.name}";
+        currentLevel.name = prefab.name;
         currentIndex = index;
 
         // foco de câmera
         var boundsObj = currentLevel.transform.Find("Bounds");
-        if (boundsObj != null)
-        {
-            var collider = boundsObj.GetComponent<BoxCollider2D>();
-            if (collider != null)
-            {
-                Bounds b = collider.bounds;
+        CurrentBounds = null; // zera referência anterior
+
+        if (boundsObj != null) {
+            CurrentBounds = boundsObj.GetComponent<BoxCollider2D>();
+            if (CurrentBounds != null) {
+                Bounds b = CurrentBounds.bounds;
 
                 CameraController camController = Camera.main.GetComponent<CameraController>();
-                if (camController != null)
-                {
+                if (camController != null) {
                     camController.FocusOnBounds(b);
                 }
+            } else {
+                Debug.LogWarning("[LevelManager] 'Bounds' encontrado, mas sem BoxCollider2D.");
             }
+        } else {
+            Debug.LogWarning("[LevelManager] Objeto 'Bounds' não encontrado no level.");
         }
     }
     // reiniciar nível
@@ -113,5 +118,11 @@ public class LevelManager : MonoBehaviour
             return;
         }
         LoadLevel(next);
+    }
+
+    public bool InsideBounds(Vector2 worldPoint)
+    {
+        bool ok = (CurrentBounds != null && CurrentBounds.OverlapPoint(worldPoint));
+        return ok;
     }
 }

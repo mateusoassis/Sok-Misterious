@@ -61,7 +61,7 @@ public class WinChecker : MonoBehaviour
 
     private bool AllGoalsHaveBoxes()
     {
-        var goals = FindObjectsOfType<GoalIdentifier>(true);
+        var goals = Object.FindObjectsByType<GoalIdentifier>(FindObjectsSortMode.None);
         if (goals.Length == 0)
         {
             return false;
