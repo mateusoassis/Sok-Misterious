@@ -6,25 +6,29 @@ public class WinChecker : MonoBehaviour
     [Header("Mesma LayerMask escolhida no Player")]
     public LayerMask solidMask;
 
-    // inputs para NEXT/RESTART (de teclado e gamepad)
-    // x para restart, c para next map
-    private InputAction restartAction; // x teclado, A/sul gamepad
-    private InputAction nextAction; // c teclado, R1 gamepad
+    // inputs para NEXT/RESTART (teclado e gamepad)
+    private InputAction restartAction; // X teclado / Sul(A) gamepad
+    private InputAction nextAction;    // C teclado / Right Shoulder
 
+    private bool canCheck;   // só checa vitória quando o level estiver pronto
     private bool won;
+    private bool armedForVictory;
+    
 
     private VictoryUI victoryUI;
 
+    // guardamos o delegate pra desinscrever corretamente
+    private System.Action onLevelLoadedHandler;
+    private System.Action onMoveHandler;
+    private System.Action onPushHandler;
+
     private void Awake()
     {
-        // x para reiniciar fase em teclado
-        // b (sul) para próxima fase em gamepad
+        // Bindings
         restartAction = new InputAction("Restart", InputActionType.Button);
         restartAction.AddBinding("<Keyboard>/x");
         restartAction.AddBinding("<Gamepad>/buttonSouth");
 
-        // c para próxima fase em teclado
-        // L1 para próxima fase em gamepad
         nextAction = new InputAction("Next", InputActionType.Button);
         nextAction.AddBinding("<Keyboard>/c");
         nextAction.AddBinding("<Gamepad>/rightShoulder");
@@ -32,86 +36,110 @@ public class WinChecker : MonoBehaviour
         restartAction.Enable();
         nextAction.Enable();
 
-        // HUD: pergunta "quantos goals faltam?"
+        // Provider para HUD (Goals restantes)
         GameEvents.SetGoalsLeftProvider(GetGoalsLeft);
 
-        GameEvents.OnLevelLoaded += () => won = false;
-
+        // VictoryUI cache (pode ser null na primeira chamada)
         victoryUI = VictoryUI.Instance;
+
+        // escuta "level carregado" do LevelManager (um handler único, sem lambda anônima)
+        onLevelLoadedHandler = HandleLevelLoaded;
+        GameEvents.OnLevelLoaded += onLevelLoadedHandler;
+
+        // trigga por input real (move/push), pra evitar vitória fantasma
+        onMoveHandler = () => armedForVictory = true;
+        onPushHandler = () => armedForVictory = true;
+        GameEvents.OnMove += onMoveHandler;
+        GameEvents.OnPush += onPushHandler;
     }
 
-    // ---------- HUD ----------
-    private int GetGoalsLeft()
+    private void OnEnable()
     {
-        CountGoalsAndCovered(out int total, out int covered);
-        return Mathf.Max(0, total - covered);
+        won = false;
+        canCheck = false;
+        armedForVictory = false;
+
+        // Se por algum motivo o level já estiver carregado quando este componente habilitar,
+        // arma manualmente (sem depender do evento que pode já ter passado).
+        var lm = LevelManager.Instance;
+        if (lm != null && lm.currentLevel != null)
+        {
+            // faz o mesmo que HandleLevelLoaded: arma no próximo frame
+            StartCoroutine(ArmCheckNextFrame());
+        }  // espera o LevelLoaded sinalizar
     }
-    private void CountGoalsAndCovered(out int total, out int covered)
-    {
-        total = 0;
-        covered = 0;
-
-        // **NOVO**: conte apenas sob o level atual
-        var root = LevelManager.Instance != null ? LevelManager.Instance.currentLevel : null;
-        GoalIdentifier[] goals = null;
-
-        if (root != null)
-        {
-            goals = root.GetComponentsInChildren<GoalIdentifier>(true);
-        }
-        else
-        {
-            // fallback (não recomendado, só por segurança)
-            goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(UnityEngine.FindObjectsSortMode.None);
-        }
-
-        total = goals.Length;
-
-        for (int i = 0; i < goals.Length; i++)
-        {
-            Vector2 p = goals[i].transform.position;
-            var hit = Physics2D.OverlapPoint(p, solidMask);
-            if (!hit) continue;
-            var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
-            if (box != null) covered++;
-        }
-    }
-    // -------------------------
 
     private void OnDestroy()
     {
-        GameEvents.OnLevelLoaded -= () => won = false;
         restartAction.Disable();
         nextAction.Disable();
 
-        // evita segurar referência se este WinChecker sair de cena
         if (GameEvents.GetGoalsLeft == GetGoalsLeft)
         {
             GameEvents.SetGoalsLeftProvider(null);
         }
+
+        if (onLevelLoadedHandler != null)
+        {
+            GameEvents.OnLevelLoaded -= onLevelLoadedHandler;
+        }
+        if (onMoveHandler != null)
+        {
+            GameEvents.OnMove -= onMoveHandler;
+        }
+        if (onPushHandler != null)
+        {
+            GameEvents.OnPush -= onPushHandler;
+        }
     }
-    
-    private void OnEnable()
+
+    private void HandleLevelLoaded()
     {
-        won = false; // ao entrar em cena, volta a checar vitória
-    }  
+        // chamado pelo LevelManager no fim do LoadLevel
+        won = false;
+        canCheck = false;
+        armedForVictory = false;
+        Debug.Log("[WinChecker] HandleLevelLoaded chamado");
+
+        // espera 1 frame pra garantir colliders atualizados
+        StartCoroutine(ArmCheckNextFrame());
+    }
+
+    private System.Collections.IEnumerator ArmCheckNextFrame()
+    {
+        yield return null;                 // 1 frame
+        Physics2D.SyncTransforms();        // sincroniza transforms -> OverlapPoint já enxerga estado novo
+        canCheck = true;
+        Debug.Log("[WinChecker] ArmCheckNextFrame: canCheck=true");
+
+        // delay mínimo extra para armar mesmo que o jogador não tenha mexido ainda
+        yield return new WaitForSeconds(0.05f);
+        armedForVictory = true;
+        Debug.Log("[WinChecker] ArmCheckNextFrame: armedForVictory=true");
+    }
 
     private void Update()
     {
+        // Debug.Log($"[WinChecker] Update: canCheck={canCheck}, armed={armedForVictory}, won={won}");
+        // importante: só checar após LevelLoaded
+        if (!canCheck || !armedForVictory)
+        {
+            return;
+        } 
+
         if (!won)
         {
             if (AllGoalsHaveBoxes())
             {
                 won = true;
-                GameEvents.RaiseGoalsMaybeChanged();
-                Debug.Log("Level cleared! (X = restart, C = Next)");
 
-                // Mostra painel de vitória (se existir)
+                TryUnlockNextLevel();               // progresso
+                GameEvents.RaiseGoalsMaybeChanged(); // HUD mostra 0 imediatamente
+
                 if (victoryUI == null)
                 {
                     victoryUI = VictoryUI.Instance;
                 }
-
                 if (victoryUI != null)
                 {
                     victoryUI.Show();
@@ -128,12 +156,46 @@ public class WinChecker : MonoBehaviour
             {
                 GoNext();
             }
+
             if (restartAction.WasPressedThisFrame())
             {
                 Restart();
             }
         }
     }
+
+    // ---------------- HUD provider ----------------
+    private int GetGoalsLeft()
+    {
+        CountGoalsAndCovered(out int total, out int covered);
+        return Mathf.Max(0, total - covered);
+    }
+
+    private void CountGoalsAndCovered(out int total, out int covered)
+    {
+        total = 0; covered = 0;
+
+        // conte SOMENTE sob o level atual (usa o currentLevel público do LevelManager)
+        var lm = LevelManager.Instance;
+        var root = (lm != null) ? lm.currentLevel : null;
+
+        GoalIdentifier[] goals = root != null
+            ? root.GetComponentsInChildren<GoalIdentifier>(true)
+            : UnityEngine.Object.FindObjectsByType<GoalIdentifier>(UnityEngine.FindObjectsSortMode.None);
+
+        total = goals.Length;
+
+        for (int i = 0; i < goals.Length; i++)
+        {
+            Vector2 p = goals[i].transform.position;
+            var hit = Physics2D.OverlapPoint(p, solidMask);
+            if (!hit) continue;
+
+            var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
+            if (box != null) covered++;
+        }
+    }
+    // ----------------------------------------------
 
     private bool AllGoalsHaveBoxes()
     {
@@ -142,8 +204,10 @@ public class WinChecker : MonoBehaviour
             return false;
         }
 
-        // só goals do level atual
-        var goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(FindObjectsSortMode.None);
+        var root = LevelManager.Instance != null ? LevelManager.Instance.currentLevel : null;
+        GoalIdentifier[] goals = root != null
+        ? root.GetComponentsInChildren<GoalIdentifier>(true)
+        : System.Array.Empty<GoalIdentifier>();
         if (goals.Length == 0)
         {
             return false;
@@ -152,15 +216,12 @@ public class WinChecker : MonoBehaviour
         foreach (var g in goals)
         {
             Vector2 p = g.transform.position;
-
-            // tem coisa sólida no centro?
             var hit = Physics2D.OverlapPoint(p, solidMask);
             if (hit == null)
             {
                 return false;
             }
 
-            // tem caixa no centro?
             var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
             if (box == null)
             {
@@ -172,21 +233,47 @@ public class WinChecker : MonoBehaviour
 
     public void GoNext()
     {
-        if (LevelManager.Instance == null)
-        {
-            return;
-        }
-        LevelManager.Instance.LoadNext();
+        var lm = LevelManager.Instance;
+        if (lm == null) return;
+
+        victoryUI?.Hide();
+        lm.LoadNext();
+
         won = false;
+        canCheck = false; // aguarda novo level carregar
     }
 
     public void Restart()
     {
-        if (LevelManager.Instance == null)
-        {
-            return;
-        }
-        LevelManager.Instance.Reload();
+        var lm = LevelManager.Instance;
+        if (lm == null) return;
+
+        victoryUI?.Hide();
+        lm.Reload();
+
         won = false;
+        canCheck = false; // aguarda novo level carregar
+    }
+
+    private void TryUnlockNextLevel()
+    {
+        var lm = LevelManager.Instance;
+        if (lm == null || lm.levelList == null) return;
+
+        int current = lm.currentIndex;
+        int next = current + 1;
+        int total = lm.LevelCount;
+
+        if (next >= total) return;
+
+        const string Key = "highestUnlocked";
+        int currentSaved = PlayerPrefs.GetInt(Key, 0);
+        int newValue = Mathf.Max(currentSaved, next);
+        if (newValue != currentSaved)
+        {
+            PlayerPrefs.SetInt(Key, newValue);
+            PlayerPrefs.Save();
+            Debug.Log($"[Progress] highestUnlocked atualizado para {newValue}");
+        }
     }
 }
