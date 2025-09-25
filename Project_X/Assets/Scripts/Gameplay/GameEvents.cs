@@ -15,8 +15,13 @@ public static class GameEvents
     // Helpers pra disparar com null-check
     public static void RaiseMove() => OnMove?.Invoke();
     public static void RaisePush() => OnPush?.Invoke();
+    public static event System.Action OnUndo;
+    public static void RaiseUndo() => OnUndo?.Invoke();
     public static void RaiseLevelLoaded() => OnLevelLoaded?.Invoke();
 
     // Registrar um provider pra GoalsLeft (WinChecker faz isso no Awake)
     public static void SetGoalsLeftProvider(Func<int> provider) => GetGoalsLeft = provider;
+
+    public static event System.Action OnGoalsMaybeChanged;
+public static void RaiseGoalsMaybeChanged() => OnGoalsMaybeChanged?.Invoke();
 }

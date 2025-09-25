@@ -13,6 +13,8 @@ public class WinChecker : MonoBehaviour
 
     private bool won;
 
+    private VictoryUI victoryUI;
+
     private void Awake()
     {
         // x para reiniciar fase em teclado
@@ -32,6 +34,10 @@ public class WinChecker : MonoBehaviour
 
         // HUD: pergunta "quantos goals faltam?"
         GameEvents.SetGoalsLeftProvider(GetGoalsLeft);
+
+        GameEvents.OnLevelLoaded += () => won = false;
+
+        victoryUI = VictoryUI.Instance;
     }
 
     // ---------- HUD ----------
@@ -42,10 +48,24 @@ public class WinChecker : MonoBehaviour
     }
     private void CountGoalsAndCovered(out int total, out int covered)
     {
-        // Unity 2023+: use FindObjectsByType totalmente qualificado p/ evitar ambiguidade
-        var goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(UnityEngine.FindObjectsSortMode.None);
-        total = goals.Length;
+        total = 0;
         covered = 0;
+
+        // **NOVO**: conte apenas sob o level atual
+        var root = LevelManager.Instance != null ? LevelManager.Instance.currentLevel : null;
+        GoalIdentifier[] goals = null;
+
+        if (root != null)
+        {
+            goals = root.GetComponentsInChildren<GoalIdentifier>(true);
+        }
+        else
+        {
+            // fallback (não recomendado, só por segurança)
+            goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(UnityEngine.FindObjectsSortMode.None);
+        }
+
+        total = goals.Length;
 
         for (int i = 0; i < goals.Length; i++)
         {
@@ -60,6 +80,7 @@ public class WinChecker : MonoBehaviour
 
     private void OnDestroy()
     {
+        GameEvents.OnLevelLoaded -= () => won = false;
         restartAction.Disable();
         nextAction.Disable();
 
@@ -68,8 +89,13 @@ public class WinChecker : MonoBehaviour
         {
             GameEvents.SetGoalsLeftProvider(null);
         }
-            
     }
+    
+    private void OnEnable()
+    {
+        won = false; // ao entrar em cena, volta a checar vitória
+    }  
+
     private void Update()
     {
         if (!won)
@@ -77,7 +103,23 @@ public class WinChecker : MonoBehaviour
             if (AllGoalsHaveBoxes())
             {
                 won = true;
+                GameEvents.RaiseGoalsMaybeChanged();
                 Debug.Log("Level cleared! (X = restart, C = Next)");
+
+                // Mostra painel de vitória (se existir)
+                if (victoryUI == null)
+                {
+                    victoryUI = VictoryUI.Instance;
+                }
+
+                if (victoryUI != null)
+                {
+                    victoryUI.Show();
+                }
+                else
+                {
+                    Debug.Log("Level cleared! (C = Next, X = Restart)");
+                }
             }
         }
         else
@@ -95,6 +137,12 @@ public class WinChecker : MonoBehaviour
 
     private bool AllGoalsHaveBoxes()
     {
+        if (LevelManager.Instance == null || LevelManager.Instance.currentLevel == null)
+        {
+            return false;
+        }
+
+        // só goals do level atual
         var goals = UnityEngine.Object.FindObjectsByType<GoalIdentifier>(FindObjectsSortMode.None);
         if (goals.Length == 0)
         {
@@ -122,7 +170,7 @@ public class WinChecker : MonoBehaviour
         return true;
     }
 
-    private void GoNext()
+    public void GoNext()
     {
         if (LevelManager.Instance == null)
         {
@@ -132,7 +180,7 @@ public class WinChecker : MonoBehaviour
         won = false;
     }
 
-    private void Restart()
+    public void Restart()
     {
         if (LevelManager.Instance == null)
         {

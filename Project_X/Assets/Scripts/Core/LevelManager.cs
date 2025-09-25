@@ -6,7 +6,7 @@ public class LevelManager : MonoBehaviour
 
     [Header("Level Data")]
     public LevelList levelList;
-    private GameObject currentLevel;
+    public GameObject currentLevel;
     public int currentIndex = -1;
     public BoxCollider2D CurrentBounds { get; private set; }
 
@@ -38,6 +38,8 @@ public class LevelManager : MonoBehaviour
 
     public void LoadLevel(int index)
     {
+        VictoryUI.Instance?.Hide();
+
         if (levelList == null || index < 0 || index >= LevelCount)
         {
             Debug.LogError("LevelManager: índice inválido ou LevelList não atribuído.");

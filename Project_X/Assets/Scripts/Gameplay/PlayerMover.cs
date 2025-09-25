@@ -181,6 +181,8 @@ public class PlayerMover : MonoBehaviour
                 gridPos = target;
                 transform.position = worldTarget;
 
+                Physics2D.SyncTransforms();
+
                 // HUD: isso contou como 1 Move e 1 Push
                 GameEvents.RaiseMove();
                 GameEvents.RaisePush();
@@ -192,6 +194,8 @@ public class PlayerMover : MonoBehaviour
         history.Add(new MoveRecord { playerFrom = gridPos, playerTo = target, box = null });
         gridPos = target;
         transform.position = worldTarget;
+
+        Physics2D.SyncTransforms();
         
         // HUD: isso contou como 1 Move
         GameEvents.RaiseMove();
@@ -200,7 +204,10 @@ public class PlayerMover : MonoBehaviour
     // desfaz o último passo (e o empurrão, se houve)
     private void UndoLast()
     {
-        if (history.Count == 0) return;
+        if (history.Count == 0)
+        {
+            return;
+        }
 
         int i = history.Count - 1;
         var rec = history[i];
@@ -215,6 +222,10 @@ public class PlayerMover : MonoBehaviour
         {
             rec.box.transform.position = GridToWorld(rec.boxFrom);
         }
+
+        Physics2D.SyncTransforms();
+        GameEvents.RaiseUndo();
+        GameEvents.RaiseGoalsMaybeChanged();
     }
 
     // ---- utilitários de gridPos ----

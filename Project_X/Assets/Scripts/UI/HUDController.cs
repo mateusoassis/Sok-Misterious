@@ -23,6 +23,7 @@ public class HUDController : MonoBehaviour
         GameEvents.OnMove += HandleMove;
         GameEvents.OnPush += HandlePush;
         GameEvents.OnLevelLoaded += HandleLevelLoaded;
+        GameEvents.OnGoalsMaybeChanged += UpdateGoals;
 
         // Inicializa visual na entrada da cena
         RefreshAll();
@@ -33,6 +34,7 @@ public class HUDController : MonoBehaviour
         GameEvents.OnMove -= HandleMove;
         GameEvents.OnPush -= HandlePush;
         GameEvents.OnLevelLoaded -= HandleLevelLoaded;
+        GameEvents.OnGoalsMaybeChanged -= UpdateGoals;
     }
 
     private void HandleMove()

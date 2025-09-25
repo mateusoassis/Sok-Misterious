@@ -16,4 +16,10 @@ MonoBehaviour:
   - displayName: Level 1
     levelPrefab: {fileID: 3988214526396710665, guid: febc227e30acc3343a72f9c2562706e2, type: 3}
   - displayName: Level 2
-    levelPrefab: {fileID: 422913990128322099, guid: b1f263fe87a0e06449f814c40242428a, type: 3}
+    levelPrefab: {fileID: 3988214526396710665, guid: 07422ac072616ce4e8309e86b89d6add, type: 3}
+  - displayName: Level 3
+    levelPrefab: {fileID: 3988214526396710665, guid: 673349d542e14ba409beec607f236e9c, type: 3}
+  - displayName: Level 4
+    levelPrefab: {fileID: 3988214526396710665, guid: c6a6b95f73007d04cb82fee5aa229521, type: 3}
+  - displayName: Level 5
+    levelPrefab: {fileID: 3988214526396710665, guid: 8a19bf6183719d040bf1bda189316f19, type: 3}
