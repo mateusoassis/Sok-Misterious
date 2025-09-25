@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class LevelManager : MonoBehaviour
 {
@@ -21,6 +22,7 @@ public class LevelManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            SceneManager.sceneLoaded += OnSceneLoaded; // <<< assina aqui
         }
         else
         {
@@ -40,11 +42,25 @@ public class LevelManager : MonoBehaviour
     {
         VictoryUI.Instance?.Hide();
 
-        if (levelList == null || index < 0 || index >= LevelCount)
+        if (levelList == null)
         {
-            Debug.LogError("LevelManager: índice inválido ou LevelList não atribuído.");
+            Debug.LogError("[LevelManager] levelList == null (não tem asset atribuído no Instance ativo).");
             return;
         }
+
+        if (LevelCount <= 0)
+        {
+            Debug.LogError("[LevelManager] LevelList vazio (LevelCount==0).");
+            return;
+        }
+
+        if (index < 0 || index >= LevelCount)
+        {
+            Debug.LogError($"[LevelManager] Índice inválido ({index}). Range [0..{LevelCount - 1}].");
+            return;
+        }
+
+        Debug.Log($"[LevelManager] Carregando level index={index} ({levelList.levels[index].displayName})");
 
         if (currentLevel != null)
         {
@@ -55,20 +71,21 @@ public class LevelManager : MonoBehaviour
         var entry = levelList.levels[index];
         if (entry.levelPrefab == null)
         {
-            Debug.LogError($"[LevelManager] Prefab nulo no Level {index} ({entry.displayName})");
+            Debug.LogError($"[LevelManager] Prefab nulo no Level {index} ({entry.displayName}).");
+            return;
         }
 
-        GameObject prefab = levelList.levels[index].levelPrefab;
+        GameObject prefab = entry.levelPrefab;
         currentLevel = Instantiate(prefab, Vector3.zero, Quaternion.identity);
+
         CurrentBounds = null;
 
-        // renomear nome de nível na hierarquia com atualização de índice atual
         currentLevel.name = prefab.name;
         currentIndex = index;
 
-        // foco de câmera
+        // foco de câmera e bounds (como você já tinha)...
         var boundsObj = currentLevel.transform.Find("Bounds");
-        CurrentBounds = null; // zera referência anterior
+        CurrentBounds = null;
 
         if (boundsObj != null)
         {
@@ -76,12 +93,8 @@ public class LevelManager : MonoBehaviour
             if (CurrentBounds != null)
             {
                 Bounds b = CurrentBounds.bounds;
-
-                CameraController camController = Camera.main.GetComponent<CameraController>();
-                if (camController != null)
-                {
-                    camController.FocusOnBounds(b);
-                }
+                var camController = Camera.main?.GetComponent<CameraController>();
+                if (camController != null) camController.FocusOnBounds(b);
             }
             else
             {
@@ -92,6 +105,8 @@ public class LevelManager : MonoBehaviour
         {
             Debug.LogWarning("[LevelManager] Objeto 'Bounds' não encontrado no level.");
         }
+
+        Debug.Log("[LevelManager] Level instanciado OK → RaiseLevelLoaded()");
         GameEvents.RaiseLevelLoaded();
     }
     // reiniciar nível
@@ -134,5 +149,26 @@ public class LevelManager : MonoBehaviour
     {
         bool ok = (CurrentBounds != null && CurrentBounds.OverlapPoint(worldPoint));
         return ok;
+    }
+    
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Se entrou na cena 02_Game e ainda não há level instanciado, carrega um
+        if (scene.name == "02_Game" && currentLevel == null)
+        {
+            // escolhe pelo LaunchArgs (se veio do Level Select) ou fallback 0
+            int index = LaunchArgs.PendingLevel.HasValue ? Mathf.Max(0, LaunchArgs.PendingLevel.Value) : 0;
+            Debug.Log($"[LevelManager] OnSceneLoaded 02_Game → carregando level {index}");
+            LoadLevel(index);
+            LaunchArgs.PendingLevel = null;
+        }
     }
 }
