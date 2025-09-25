@@ -41,6 +41,7 @@ public class LevelManager : MonoBehaviour
     public void LoadLevel(int index)
     {
         VictoryUI.Instance?.Hide();
+        PauseMenu.Instance?.Hide();
 
         if (levelList == null)
         {
