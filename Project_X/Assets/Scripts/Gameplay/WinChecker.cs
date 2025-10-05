@@ -13,7 +13,7 @@ public class WinChecker : MonoBehaviour
     private bool canCheck;   // só checa vitória quando o level estiver pronto
     private bool won;
     private bool armedForVictory;
-    
+
 
     private VictoryUI victoryUI;
 
@@ -125,7 +125,7 @@ public class WinChecker : MonoBehaviour
         if (!canCheck || !armedForVictory)
         {
             return;
-        } 
+        }
 
         if (!won)
         {
@@ -260,20 +260,10 @@ public class WinChecker : MonoBehaviour
         var lm = LevelManager.Instance;
         if (lm == null || lm.levelList == null) return;
 
-        int current = lm.currentIndex;
-        int next = current + 1;
-        int total = lm.LevelCount;
+        int next = lm.currentIndex + 1;
+        if (next >= lm.LevelCount) return; // último nível
 
-        if (next >= total) return;
-
-        const string Key = "highestUnlocked";
-        int currentSaved = PlayerPrefs.GetInt(Key, 0);
-        int newValue = Mathf.Max(currentSaved, next);
-        if (newValue != currentSaved)
-        {
-            PlayerPrefs.SetInt(Key, newValue);
-            PlayerPrefs.Save();
-            Debug.Log($"[Progress] highestUnlocked atualizado para {newValue}");
-        }
+        SaveManager.UnlockUpTo(next);
+        Debug.Log($"[WinChecker] highestUnlockedIndex = {SaveManager.HighestUnlockedIndex}");
     }
 }

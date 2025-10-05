@@ -57,7 +57,7 @@ public class VictoryUI : MonoBehaviour
     }
     private void OnDisable()
     {
-        Debug.Log("[VictoryUI] OnDisable -> remove OnLevelLoaded");
+        // Debug.Log("[VictoryUI] OnDisable -> remove OnLevelLoaded");
         GameEvents.OnLevelLoaded -= Hide;
     }
 
@@ -71,7 +71,7 @@ public class VictoryUI : MonoBehaviour
 
     public void Show()
     {
-        Debug.Log("[VictoryUI] Show chamado");
+        // Debug.Log("[VictoryUI] Show chamado");
         if (!panel)
         {
             return;
@@ -90,7 +90,7 @@ public class VictoryUI : MonoBehaviour
 
     public void Hide()
     {
-        Debug.Log("[VictoryUI] Hide chamado");
+        // Debug.Log("[VictoryUI] Hide chamado");
         if (!panel)
         {
             return;
@@ -106,7 +106,7 @@ public class VictoryUI : MonoBehaviour
 
     private void HideImmediate()
     {
-        Debug.Log("[VictoryUI] OnEnable -> HideImmediate()");
+        // Debug.Log("[VictoryUI] OnEnable -> HideImmediate()");
         if (!panel) return;
         panel.alpha = 0f;
         panel.interactable = false;
