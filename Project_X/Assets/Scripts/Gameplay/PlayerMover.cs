@@ -41,6 +41,9 @@ public class PlayerMover : MonoBehaviour
     }
     private readonly List<MoveRecord> history = new List<MoveRecord>(256);
     // ---------------------------
+    [Header("Animator")]
+    [SerializeField] PlayerLerpMotion motion;
+    [SerializeField] PlayerAnimatorBridge bridge;
 
     private void Awake()
     {
@@ -77,7 +80,22 @@ public class PlayerMover : MonoBehaviour
         // UNDO primeiro pra não misturar com movimento
         if (undoAction.WasPressedThisFrame())
         {
+            // travar enquanto houver lerp rolando
+            if (motion != null && motion.IsMoving) return;
+            if (AnyBoxIsMoving()) return; // helper abaixo
+
             UndoLast();
+
+            // zerar repeat imediatamente
+            heldDir = Vector2Int.zero;
+            nextRepeatTime = Time.time + firstRepeatDelay; // “reseta” o cronômetro
+            return;
+        }
+
+        // se está animando um movimento, não aceita novo input
+        if (motion != null && motion.IsMoving)
+        {
+            heldDir = Vector2Int.zero;     // evita repeat armar passo extra
             return;
         }
 
@@ -115,10 +133,49 @@ public class PlayerMover : MonoBehaviour
         }
     }
 
+    private bool AnyBoxIsMoving()
+    {
+        var motions = FindObjectsOfType<BoxLerpMotion>();
+        foreach (var m in motions) if (m != null && m.IsMoving) return true;
+        return false;
+    }
+
+    // check se o goal é a célula alvo
+    private bool IsGoalCell(Vector2Int gridCell)
+    {
+        // 1) Tenta achar por física (se Goal tiver Collider2D)
+        Vector3 wp = GridToWorld(gridCell);
+        var cols = Physics2D.OverlapPointAll(wp);
+        if (cols != null)
+        {
+            foreach (var c in cols)
+            {
+                if (c == null) continue;
+                var gi = c.GetComponent<GoalIdentifier>() ?? c.GetComponentInParent<GoalIdentifier>();
+                if (gi != null) return true;
+            }
+        }
+
+        // 2) Fallback: compara por posição (se Goal NÃO tiver collider)
+        var goals = Object.FindObjectsOfType<GoalIdentifier>(); // poucas instâncias, ok para MVP
+        foreach (var gi in goals)
+        {
+            if (gi == null) continue;
+            if (WorldToGrid(gi.transform.position) == gridCell)
+                return true;
+        }
+
+        return false;
+    }
+
+
+
     // movimenta 1 célula, bloqueia se parede, empurra caixa se atrás estiver livre
     private void TryStep(Vector2Int dir)
     {
+        if (motion != null && motion.IsMoving) return;
         Vector2Int target = gridPos + dir;
+        bridge?.SetDirection(dir);
         Vector2 worldTarget = GridToWorld(target);
 
         // bounds bloquear player andando
@@ -176,28 +233,54 @@ public class PlayerMover : MonoBehaviour
                     boxTo = boxTarget
                 });
 
-                // empurra a caixa e move o player
-                box.transform.position = worldBoxTarget;
+                // empurra a caixa com LERP e move o player com LERP (sincronizados)
+                var boxMotion = box.GetComponent<BoxLerpMotion>();
                 gridPos = target;
-                transform.position = worldTarget;
 
-                Physics2D.SyncTransforms();
+                // player move
+                bridge?.SetMoving(true);
+                StartCoroutine(motion.MoveBy(dir, () => bridge.SetMoving(false)));
 
-                // HUD: isso contou como 1 Move e 1 Push
+                // caixa move
+                if (boxMotion != null)
+                {
+                    StartCoroutine(boxMotion.MoveTo(worldBoxTarget, () =>
+                    {
+                        // >>> (A) AQUI: terminou o lerp da Box
+                        bool onGoal = IsGoalCell(WorldToGrid(worldBoxTarget));
+                        var goalState = box.GetComponent<BoxGoalState>();
+                        if (goalState != null) goalState.SetOnGoal(onGoal);
+
+                        GameEvents.RaiseGoalsMaybeChanged();
+                    }));
+                }
+                else
+                {
+                    // fallback (sem BoxLerpMotion)
+                    box.transform.position = worldBoxTarget;
+                    bool onGoal = IsGoalCell(WorldToGrid(worldBoxTarget));
+                    var goalState = box.GetComponent<BoxGoalState>();
+                    if (goalState != null) goalState.SetOnGoal(onGoal);
+                    GameEvents.RaiseGoalsMaybeChanged();
+                }
+
+                // feedback “push”
+                StartCoroutine(bridge.PulsePush(0.15f));
+
+                // métricas
                 GameEvents.RaiseMove();
                 GameEvents.RaisePush();
                 return;
             }
         }
 
-        // player livre -> passo simples + registra para UNDO
+        // player livre -> passo simples + registra para UNDO (com LERP no player)
         history.Add(new MoveRecord { playerFrom = gridPos, playerTo = target, box = null });
         gridPos = target;
-        transform.position = worldTarget;
 
-        Physics2D.SyncTransforms();
-        
-        // HUD: isso contou como 1 Move
+        bridge?.SetMoving(true);
+        StartCoroutine(motion.MoveBy(dir, () => bridge.SetMoving(false)));
+
         GameEvents.RaiseMove();
     }
 
@@ -213,19 +296,33 @@ public class PlayerMover : MonoBehaviour
         var rec = history[i];
         history.RemoveAt(i);
 
-        // volta player
+        // --- PLAYER: cancela lerp e "snapa" ---
         gridPos = rec.playerFrom;
-        transform.position = GridToWorld(gridPos);
+        Vector3 playerTarget = GridToWorld(gridPos);
 
-        // volta caixa (se teve push)
+        if (motion != null) motion.CancelAndSnap(playerTarget);
+        else transform.position = playerTarget;
+
+        bridge?.ResetAll();
+
         if (rec.box != null && rec.box.gameObject != null)
         {
-            rec.box.transform.position = GridToWorld(rec.boxFrom);
-        }
+            var target = GridToWorld(rec.boxFrom);
 
+            var boxMotion = rec.box.GetComponent<BoxLerpMotion>();
+            if (boxMotion != null) boxMotion.CancelAndSnap(target);
+            else rec.box.transform.position = target;
+
+            // atualiza o highlight depois do Undo
+            var goalState = rec.box.GetComponent<BoxGoalState>();
+            if (goalState != null) goalState.SetOnGoal(IsGoalCell(rec.boxFrom));
+        }
         Physics2D.SyncTransforms();
         GameEvents.RaiseUndo();
         GameEvents.RaiseGoalsMaybeChanged();
+        heldDir = Vector2Int.zero;
+        nextRepeatTime = Time.time + firstRepeatDelay;
+        
     }
 
     // ---- utilitários de gridPos ----

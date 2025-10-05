@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 public class LevelManager : MonoBehaviour
 {
@@ -35,6 +36,40 @@ public class LevelManager : MonoBehaviour
         for (int i = 0; i < levelList.levels.Length; i++)
         {
             Debug.Log($"[LevelList] {i}: {levelList.levels[i].displayName}, prefab = {levelList.levels[i].levelPrefab}");
+        }
+    }
+
+    private void InitializeBoxHighlights()
+    {
+        // Descobre o cellSize atual (pega do PlayerMover se existir)
+        float cellSize = 1f;
+        var pm = FindObjectOfType<PlayerMover>();
+        if (pm != null) cellSize = pm.cellSize;
+
+        // Helper local p/ grid conversion
+        Vector2Int WorldToGridLocal(Vector3 wp)
+        {
+            int gx = Mathf.RoundToInt(wp.x / cellSize);
+            int gy = Mathf.RoundToInt(wp.y / cellSize);
+            return new Vector2Int(gx, gy);
+        }
+
+        // Constrói um set com todas as células de Goal do level atual
+        var goals = currentLevel.GetComponentsInChildren<GoalIdentifier>(true);
+        var goalCells = new HashSet<Vector2Int>();
+        foreach (var gi in goals)
+            goalCells.Add(WorldToGridLocal(gi.transform.position));
+
+        // Para cada Box do level, liga/desliga o UnderSprite conforme esteja em goal
+        var boxes = currentLevel.GetComponentsInChildren<BoxIdentifier>(true);
+        foreach (var box in boxes)
+        {
+            var gs = box.GetComponent<BoxGoalState>();
+            if (gs == null) continue; // se não tiver o componente, ignora (seguro)
+
+            Vector2Int boxCell = WorldToGridLocal(box.transform.position);
+            bool onGoal = goalCells.Contains(boxCell);
+            gs.SetOnGoal(onGoal);
         }
     }
 
@@ -106,6 +141,8 @@ public class LevelManager : MonoBehaviour
         {
             Debug.LogWarning("[LevelManager] Objeto 'Bounds' não encontrado no level.");
         }
+
+        InitializeBoxHighlights();
 
         Debug.Log("[LevelManager] Level instanciado OK → RaiseLevelLoaded()");
         GameEvents.RaiseLevelLoaded();
