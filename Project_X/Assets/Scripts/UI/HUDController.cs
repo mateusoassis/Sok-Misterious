@@ -1,35 +1,47 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
-/// <summary>
-/// Atualiza HUD de Moves, Pushes e Goals restantes.
-/// - Escuta GameEvents.OnMove/OnPush.
-/// - Lê GameEvents.GetGoalsLeft() para Goals.
-/// - Reseta contadores quando GameEvents.OnLevelLoaded dispara.
-/// </summary>
 public class HUDController : MonoBehaviour
 {
-    [Header("Refs (TMP)")]
-    public TextMeshProUGUI movesText;
-    public TextMeshProUGUI pushesText;
-    public TextMeshProUGUI goalsText;
+    [Header("Labels (TMP)")]
+    [SerializeField] TMP_Text levelNameText;   // opcional (pode deixar vazio)
+    [SerializeField] TMP_Text movesText;
+    [SerializeField] TMP_Text pushesText;
+    [SerializeField] TMP_Text goalsText;
 
-    // contadores locais do HUD (não gravam progresso; só visual)
-    private int moves;
-    private int pushes;
+    [Header("Buttons")]
+    [SerializeField] Button btnUndo;
+    [SerializeField] Button btnRestart;
+    [SerializeField] Button btnPause;
 
-    private void OnEnable()
+    // contadores locais (somente visual)
+    int moves;
+    int pushes;
+
+    // cache
+    PlayerMover mover;
+
+    void Awake()
+    {
+        mover = FindObjectOfType<PlayerMover>();
+
+        if (btnUndo)    btnUndo.onClick.AddListener(OnClickUndo);
+        if (btnRestart) btnRestart.onClick.AddListener(OnClickRestart);
+        if (btnPause)   btnPause.onClick.AddListener(OnClickPause);
+    }
+
+    void OnEnable()
     {
         GameEvents.OnMove += HandleMove;
         GameEvents.OnPush += HandlePush;
         GameEvents.OnLevelLoaded += HandleLevelLoaded;
         GameEvents.OnGoalsMaybeChanged += UpdateGoals;
 
-        // Inicializa visual na entrada da cena
         RefreshAll();
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
         GameEvents.OnMove -= HandleMove;
         GameEvents.OnPush -= HandlePush;
@@ -37,47 +49,101 @@ public class HUDController : MonoBehaviour
         GameEvents.OnGoalsMaybeChanged -= UpdateGoals;
     }
 
-    private void HandleMove()
+    void Update()
+    {
+        // feedback de UX: habilita/desabilita Undo conforme pode desfazer
+        if (!mover) mover = FindObjectOfType<PlayerMover>();
+        if (btnUndo) btnUndo.interactable = mover && mover.CanUndoNow();
+    }
+
+    // ----------------- Events -----------------
+
+    void HandleMove()
     {
         moves++;
         UpdateMoves();
         UpdateGoals();
     }
 
-    private void HandlePush()
+    void HandlePush()
     {
         pushes++;
         UpdatePushes();
-        // Goals podem ter mudado (caixa entrou/saiu de goal)
         UpdateGoals();
     }
 
-    private void HandleLevelLoaded()
+    void HandleLevelLoaded()
     {
-        // Sempre que um nível é carregado/recarregado, zera contadores
+        // reset visual ao (re)carregar level
         moves = 0;
         pushes = 0;
+
+        // referência do mover muda após reload
+        mover = FindObjectOfType<PlayerMover>();
+
         RefreshAll();
     }
 
-    private void RefreshAll()
+    // ----------------- UI Actions -----------------
+
+    public void OnClickUndo()
     {
+        if (!mover) mover = FindObjectOfType<PlayerMover>();
+        if (!mover) return;
+
+        if (!mover.CanUndoNow()) return;
+        mover.TryUndoFromUI();
+    }
+
+    public void OnClickRestart()
+    {
+        // fecha pause se estiver aberto, pra evitar ficar travado
+        if (PauseMenu.Instance != null) PauseMenu.Instance.Hide();
+        LevelManager.Instance?.Reload();
+    }
+
+    public void OnClickPause()
+    {
+        PauseMenu.Instance?.Toggle();
+    }
+
+    // ----------------- Helpers -----------------
+
+    void RefreshAll()
+    {
+        RefreshLevelName();
         UpdateMoves();
         UpdatePushes();
         UpdateGoals();
     }
 
-    private void UpdateMoves()
+    public void RefreshLevelName()
+    {
+        if (!levelNameText) return;
+
+        var lm = LevelManager.Instance;
+        if (lm != null && lm.levelList != null && lm.currentIndex >= 0 && lm.currentIndex < lm.LevelCount)
+        {
+            var entry = lm.levelList.levels[lm.currentIndex];
+            levelNameText.text = entry.displayName;
+        }
+        else
+        {
+            levelNameText.text = "—";
+        }
+    }
+
+    void UpdateMoves()
     {
         if (movesText) movesText.text = $"Moves: {moves}";
     }
 
-    private void UpdatePushes()
+    void UpdatePushes()
     {
         if (pushesText) pushesText.text = $"Pushes: {pushes}";
     }
 
-    private void UpdateGoals()
+    void UpdateGoals()
     {
         int left = GameEvents.GetGoalsLeft != null ? GameEvents.GetGoalsLeft() : 0;
         if (goalsText) goalsText.text = $"Goals: {left}";

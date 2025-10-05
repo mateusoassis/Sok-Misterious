@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// Menu de Pause simples:
@@ -18,6 +19,7 @@ using UnityEngine.SceneManagement;
 public class PauseMenu : MonoBehaviour
 {
     public static PauseMenu Instance { get; private set; }
+    public static bool IsPaused => Instance != null && Instance.isVisible;
 
     [Header("Refs")]
     public CanvasGroup panel;
@@ -28,6 +30,10 @@ public class PauseMenu : MonoBehaviour
     [Header("Options")]
     [Tooltip("Se true, usa Time.timeScale=0 quando pausado.")]
     public bool useTimeScalePause = true;
+
+    [Header("Selection")]
+    [SerializeField] GameObject firstSelected; // arrasta o BtnResume aqui
+    GameObject lastSelectedBeforePause;
 
     // input
     private InputAction pauseAction;
@@ -111,6 +117,10 @@ public class PauseMenu : MonoBehaviour
         panel.interactable = true;
         panel.blocksRaycasts = true;
 
+        lastSelectedBeforePause = EventSystem.current?.currentSelectedGameObject;
+        if (EventSystem.current && firstSelected)
+            EventSystem.current.SetSelectedGameObject(firstSelected);
+
         // trava o player
         cachedPlayer = FindObjectOfType<PlayerMover>();
         if (cachedPlayer) cachedPlayer.enabled = false;
@@ -132,6 +142,10 @@ public class PauseMenu : MonoBehaviour
         panel.alpha = 0f;
         panel.interactable = false;
         panel.blocksRaycasts = false;
+
+        if (EventSystem.current && lastSelectedBeforePause)
+            EventSystem.current.SetSelectedGameObject(lastSelectedBeforePause);
+        lastSelectedBeforePause = null;
 
         // libera o player do nível atual
         if (cachedPlayer) cachedPlayer.enabled = true;
@@ -163,6 +177,7 @@ public class PauseMenu : MonoBehaviour
     private void OnClickRestart()
     {
         Hide(); // fecha o pause antes de recarregar
+        // GameEvents.RaiseRestart(); // se/quando você quiser contar restart p/ achievement
         LevelManager.Instance?.Reload();
     }
 

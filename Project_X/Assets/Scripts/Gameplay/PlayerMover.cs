@@ -168,7 +168,22 @@ public class PlayerMover : MonoBehaviour
         return false;
     }
 
+    public bool CanUndoNow()
+    {
+        if (!enabled) return false;                          // pausado → PlayerMover desabilitado
+        if (motion != null && motion.IsMoving) return false; // lerp do player
+        var boxes = FindObjectsOfType<BoxLerpMotion>();
+        foreach (var b in boxes) if (b != null && b.IsMoving) return false; // lerp de box
+        return history.Count > 0;
+    }
 
+    public void TryUndoFromUI()
+    {
+        if (!CanUndoNow()) return;
+        UndoLast();
+        heldDir = Vector2Int.zero;
+        nextRepeatTime = Time.time + firstRepeatDelay; // evita “andar sozinho” depois do undo
+    }
 
     // movimenta 1 célula, bloqueia se parede, empurra caixa se atrás estiver livre
     private void TryStep(Vector2Int dir)
