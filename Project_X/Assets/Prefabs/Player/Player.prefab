@@ -77,7 +77,7 @@ SpriteRenderer:
   m_SortingLayerID: 1884937809
   m_SortingLayer: 5
   m_SortingOrder: 0
-  m_Sprite: {fileID: 1817494176043284448, guid: 92126c75848835f419e401213e614909, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 23aa553b4e5bcb849ad9b5222a8ffb94, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -193,5 +193,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   anim: {fileID: 2400623669301118264}
   sr: {fileID: 2135424850220952281}
-  flipXEnabled: 0
+  flipXEnabled: 1
   keepFacingOnVertical: 1

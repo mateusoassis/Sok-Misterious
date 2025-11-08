@@ -8,7 +8,7 @@ public class PlayerAnimatorBridge : MonoBehaviour
     [SerializeField] SpriteRenderer sr;            // arrasta o SpriteRenderer do PlayerSprite
 
     [Header("Flip X (opcional)")]
-    [SerializeField] bool flipXEnabled = false;    // desmarcado por padrão
+    [SerializeField] bool flipXEnabled = true;
     [SerializeField] bool keepFacingOnVertical = true; // mantém direção anterior quando mover só pra cima/baixo
     int lastFacingX = 1; // 1 = direita, -1 = esquerda
 

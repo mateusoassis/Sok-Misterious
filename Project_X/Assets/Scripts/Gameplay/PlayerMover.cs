@@ -157,7 +157,7 @@ public class PlayerMover : MonoBehaviour
         }
 
         // 2) Fallback: compara por posição (se Goal NÃO tiver collider)
-        var goals = Object.FindObjectsOfType<GoalIdentifier>(); // poucas instâncias, ok para MVP
+        var goals = UnityEngine.Object.FindObjectsOfType<GoalIdentifier>(); // poucas instâncias, ok para MVP
         foreach (var gi in goals)
         {
             if (gi == null) continue;
