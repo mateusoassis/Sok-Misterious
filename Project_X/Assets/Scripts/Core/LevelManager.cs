@@ -155,6 +155,7 @@ public class LevelManager : MonoBehaviour
             Debug.LogWarning("[LevelManager] Nenhum nível carregado pra recarregar.");
             return;
         }
+        GameEvents.RaiseRestart();
         LoadLevel(currentIndex);
     }
 

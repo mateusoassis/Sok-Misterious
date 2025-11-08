@@ -133,7 +133,18 @@ public class WinChecker : MonoBehaviour
             {
                 won = true;
 
-                TryUnlockNextLevel();               // progresso
+                // >>> ACHIEVEMENTS
+                if (LevelRunTracker.Instance != null)
+                {
+                    var stats = LevelRunTracker.Instance.GetSnapshot();
+                    Achievements.NotifyLevelCompleted(stats);
+                }
+                else
+                {
+                    Debug.LogWarning("[WinChecker] LevelRunTracker.Instance == null; sem stats pra achievements.");
+                }
+
+                TryUnlockNextLevel();                // progresso
                 GameEvents.RaiseGoalsMaybeChanged(); // HUD mostra 0 imediatamente
 
                 if (victoryUI == null)
@@ -150,18 +161,7 @@ public class WinChecker : MonoBehaviour
                 }
             }
         }
-        else
-        {
-            if (nextAction.WasPressedThisFrame())
-            {
-                GoNext();
-            }
 
-            if (restartAction.WasPressedThisFrame())
-            {
-                Restart();
-            }
-        }
     }
 
     // ---------------- HUD provider ----------------
@@ -266,4 +266,36 @@ public class WinChecker : MonoBehaviour
         SaveManager.UnlockUpTo(next);
         Debug.Log($"[WinChecker] highestUnlockedIndex = {SaveManager.HighestUnlockedIndex}");
     }
+
+    // ---------------------------------------------------
+    // CHEAT DEV: força vitória mesmo sem todos os goals
+    // ---------------------------------------------------
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    public void ForceWinCheat()
+    {
+        if (won) return;  // já venceu? ignora
+
+        won = true;
+
+        // Telemetria / achievements
+        if (LevelRunTracker.Instance != null)
+        {
+            var stats = LevelRunTracker.Instance.GetSnapshot();
+            Achievements.NotifyLevelCompleted(stats);
+        }
+
+        // Progresso normal
+        TryUnlockNextLevel();
+        GameEvents.RaiseGoalsMaybeChanged();
+
+        // UI de vitória
+        if (victoryUI == null)
+            victoryUI = VictoryUI.Instance;
+
+        if (victoryUI != null)
+            victoryUI.Show();
+        else
+            Debug.Log("[WinChecker] ForceWinCheat: Level cleared! (C = Next, X = Restart)");
+    }
+#endif
 }
