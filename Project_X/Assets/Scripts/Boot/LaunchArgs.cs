@@ -4,6 +4,6 @@
 /// </summary>
 public static class LaunchArgs
 {
-    // null = não foi definido; GameBootstrapper pode cair no nível 0
+    // null = nenhum level especificado; GameBootstrapper carrega o level 0
     public static int? PendingLevel = null;
 }

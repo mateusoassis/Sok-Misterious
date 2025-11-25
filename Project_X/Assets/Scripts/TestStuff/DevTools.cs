@@ -3,25 +3,29 @@ using UnityEngine.InputSystem;
 using TMPro;
 
 /// <summary>
-/// Dev tools simples:
-/// - F1: toggle overlay de debug
-/// - F5: reload nível atual
-/// - F6: próximo nível
-/// - F7: nível anterior
-/// - F8: força vitória (cheat)
-/// 
-/// Só funciona em Editor ou Development Build.
+/// Ferramentas de desenvolvimento simples, acessíveis apenas no Editor
+/// ou em Development Build.
+///
+/// Hotkeys:
+/// - F1: Mostrar/ocultar overlay de debug.
+/// - F5: Recarregar nível atual.
+/// - F6: Próximo nível.
+/// - F7: Nível anterior.
+/// - F8: Forçar vitória (cheat).
+///
+/// O script se auto-desativa automaticamente em builds finais.
 /// </summary>
 public class DevTools : MonoBehaviour
 {
     [Header("Dev Mode")]
-    [Tooltip("Se desligado, desativa tudo mesmo em Editor/DevBuild.")]
+    [Tooltip("Se desligado, desativa tudo mesmo em Editor/Development Build.")]
     [SerializeField] bool devModeEnabled = true;
 
     [Header("Overlay (opcional)")]
-    [SerializeField] CanvasGroup overlayCanvas;
-    [SerializeField] TextMeshProUGUI overlayLabel;
+    [SerializeField] CanvasGroup overlayCanvas;        // CanvasGroup da UI de overlay
+    [SerializeField] TextMeshProUGUI overlayLabel;     // Texto mostrado no overlay
 
+    // Ações criadas via Input System em runtime
     InputAction toggleOverlayAction;
     InputAction reloadAction;
     InputAction nextLevelAction;
@@ -33,17 +37,19 @@ public class DevTools : MonoBehaviour
     void Awake()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // se dev mode estiver desligado, desativa tudo
         if (!devModeEnabled)
         {
             enabled = false;
             return;
         }
 #else
-        // em build final, desliga tudo
+        // build final → nunca ativa devtools
         enabled = false;
         return;
 #endif
-        // cria input actions em runtime
+
+        // Inicializa hotkeys
         toggleOverlayAction = new InputAction("DevToggleOverlay", InputActionType.Button);
         toggleOverlayAction.AddBinding("<Keyboard>/f1");
 
@@ -59,18 +65,20 @@ public class DevTools : MonoBehaviour
         forceWinAction = new InputAction("DevForceWin", InputActionType.Button);
         forceWinAction.AddBinding("<Keyboard>/f8");
 
+        // Ativa todas as ações
         toggleOverlayAction.Enable();
         reloadAction.Enable();
         nextLevelAction.Enable();
         prevLevelAction.Enable();
         forceWinAction.Enable();
 
-        // começa overlay desligado
+        // Overlay começa invisível
         SetOverlayVisible(false);
     }
 
     void OnDestroy()
     {
+        // Desabilita ações ao destruir o objeto
         toggleOverlayAction.Disable();
         reloadAction.Disable();
         nextLevelAction.Disable();
@@ -80,38 +88,31 @@ public class DevTools : MonoBehaviour
 
     void Update()
     {
+        // Toggle overlay
         if (toggleOverlayAction.WasPressedThisFrame())
-        {
             SetOverlayVisible(!overlayVisible);
-        }
 
+        // Comandos de dev
         if (reloadAction.WasPressedThisFrame())
-        {
             DevReload();
-        }
 
         if (nextLevelAction.WasPressedThisFrame())
-        {
             DevNextLevel();
-        }
 
         if (prevLevelAction.WasPressedThisFrame())
-        {
             DevPrevLevel();
-        }
 
         if (forceWinAction.WasPressedThisFrame())
-        {
             DevForceWin();
-        }
 
+        // Atualiza texto do overlay se estiver visível
         if (overlayVisible)
-        {
             UpdateOverlay();
-        }
     }
 
-    // --------- Comandos ---------
+    // --------------------------------------------------------------------
+    // Comandos de desenvolvimento
+    // --------------------------------------------------------------------
 
     void DevReload()
     {
@@ -121,6 +122,7 @@ public class DevTools : MonoBehaviour
             Debug.LogWarning("[DevTools] Reload: LevelManager.Instance == null");
             return;
         }
+
         Debug.Log("[DevTools] Reload current level (F5).");
         lm.Reload();
     }
@@ -133,6 +135,7 @@ public class DevTools : MonoBehaviour
             Debug.LogWarning("[DevTools] NextLevel: LevelManager.Instance == null");
             return;
         }
+
         Debug.Log("[DevTools] Next level (F6).");
         lm.LoadNext();
     }
@@ -147,6 +150,7 @@ public class DevTools : MonoBehaviour
         }
 
         int cur = lm.currentIndex;
+
         if (cur <= 0)
         {
             Debug.Log("[DevTools] PrevLevel: já está no primeiro nível.");
@@ -161,9 +165,10 @@ public class DevTools : MonoBehaviour
     void DevForceWin()
     {
         var wc = FindObjectOfType<WinChecker>();
+
         if (wc == null)
         {
-            Debug.LogWarning("[DevTools] ForceWin: WinChecker não encontrado na cena.");
+            Debug.LogWarning("[DevTools] ForceWin: WinChecker não encontrado.");
             return;
         }
 
@@ -171,7 +176,9 @@ public class DevTools : MonoBehaviour
         wc.ForceWinCheat();
     }
 
-    // --------- Overlay ---------
+    // --------------------------------------------------------------------
+    // Overlay
+    // --------------------------------------------------------------------
 
     void SetOverlayVisible(bool visible)
     {
@@ -191,10 +198,10 @@ public class DevTools : MonoBehaviour
         var lm = LevelManager.Instance;
         var rt = LevelRunTracker.Instance;
 
+        // Informações do nível atual
         int levelIndex = lm != null ? lm.currentIndex : -1;
-        string levelName = "???";
-        string highestStr = "?";
 
+        string levelName = "???";
         if (lm != null && lm.levelList != null &&
             levelIndex >= 0 && levelIndex < lm.levelList.levels.Length)
         {
@@ -204,12 +211,13 @@ public class DevTools : MonoBehaviour
                 : entry.displayName;
         }
 
-        highestStr = SaveManager.HighestUnlockedIndex.ToString();
+        // Progresso salvo
+        string highestStr = SaveManager.HighestUnlockedIndex.ToString();
 
-        LevelStats stats = default;
-        if (rt != null)
-            stats = rt.GetSnapshot();
+        // Stats da run atual
+        LevelStats stats = rt != null ? rt.GetSnapshot() : default;
 
+        // Atualiza UI
         overlayLabel.text =
             $"DEV TOOLS\n" +
             $"Level: {levelIndex} ({levelName})\n" +

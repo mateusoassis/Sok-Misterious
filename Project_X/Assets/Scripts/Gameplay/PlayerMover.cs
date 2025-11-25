@@ -2,9 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-// grid, 1 input = 1 célula; 4 direções (sem diagonal)
-// push de caixa (objetos na Layer "Solid" com BoxIdentifier)
-// UNDO (Z no teclado, Y no gamepad)
+// Controla movimento em grid do player:
+// - 4 direções, 1 input = 1 célula
+// - Empurrar caixas (BoxIdentifier na Layer "Solid")
+// - UNDO (Z no teclado, Y no gamepad)
 public class PlayerMover : MonoBehaviour
 {
     [Header("Grid")]
@@ -14,21 +15,21 @@ public class PlayerMover : MonoBehaviour
     [Header("Repeat")]
     [Tooltip("Se ligado, segurar direção repete passos.")]
     public bool enableRepeat = true;
-    public float firstRepeatDelay = 0.25f;
-    public float repeatInterval   = 0.12f;
+    public float firstRepeatDelay = 0.25f; // delay inicial do repeat
+    public float repeatInterval   = 0.12f; // intervalo entre repetições
 
     [Header("Colisão e Push")]
     [Tooltip("Camadas que bloqueiam (ex.: Solid). A Box também deve estar nessa Layer.")]
     public LayerMask solidMask;
 
-    // estado lógico do player (em células)
+    // Posição lógica do player em coordenadas de grid
     private Vector2Int gridPos;
 
-    // Input System (criadas em código)
+    // Input System (criados em código)
     private InputAction moveAction;
     private InputAction undoAction;
 
-    // controle de repeat
+    // Controle de repeat
     private Vector2Int heldDir = Vector2Int.zero;
     private float nextRepeatTime = 0f;
 
@@ -36,18 +37,21 @@ public class PlayerMover : MonoBehaviour
     private struct MoveRecord
     {
         public Vector2Int playerFrom, playerTo;
-        public BoxIdentifier box; // lembrar que é null se não houve push
+        public BoxIdentifier box; // null se não houve push
         public Vector2Int boxFrom, boxTo;
     }
+
+    // Histórico de movimentos (para UNDO)
     private readonly List<MoveRecord> history = new List<MoveRecord>(256);
     // ---------------------------
+
     [Header("Animator")]
-    [SerializeField] PlayerLerpMotion motion;
-    [SerializeField] PlayerAnimatorBridge bridge;
+    [SerializeField] PlayerLerpMotion motion;      // componente de movimento suave
+    [SerializeField] PlayerAnimatorBridge bridge;  // ponte para Animator / flip do sprite
 
     private void Awake()
     {
-        // movimento (Vector2) -> teclado + gamepad
+        // Configura input de movimento (teclado + gamepad) via Input System
         moveAction = new InputAction("Move", InputActionType.Value, expectedControlType: "Vector2");
         moveAction.AddCompositeBinding("2DVector")
             .With("Up", "<Keyboard>/w").With("Up", "<Keyboard>/upArrow")
@@ -57,7 +61,7 @@ public class PlayerMover : MonoBehaviour
         moveAction.AddBinding("<Gamepad>/dpad");
         moveAction.AddBinding("<Gamepad>/leftStick");
 
-        // UNDO: Z teclado, Y (norte) no gamepad
+        // Input de UNDO: Z teclado, Y (norte) no gamepad
         undoAction = new InputAction("Undo", InputActionType.Button);
         undoAction.AddBinding("<Keyboard>/z");
         undoAction.AddBinding("<Gamepad>/buttonNorth");
@@ -71,76 +75,86 @@ public class PlayerMover : MonoBehaviour
 
     private void OnDestroy()
     {
+        // Boas práticas: desabilita actions ao destruir
         moveAction.Disable();
         undoAction.Disable();
     }
 
     private void Update()
     {
-        // UNDO primeiro pra não misturar com movimento
+        // 1) UNDO tem prioridade sobre input de movimento
         if (undoAction.WasPressedThisFrame())
         {
-            // travar enquanto houver lerp rolando
+            // trava UNDO se houver animação de movimento rolando
             if (motion != null && motion.IsMoving) return;
             if (AnyBoxIsMoving()) return; // helper abaixo
 
             UndoLast();
 
-            // zerar repeat imediatamente
+            // reset do repeat depois do undo
             heldDir = Vector2Int.zero;
-            nextRepeatTime = Time.time + firstRepeatDelay; // “reseta” o cronômetro
+            nextRepeatTime = Time.time + firstRepeatDelay;
             return;
         }
 
-        // se está animando um movimento, não aceita novo input
+        // 2) Se está animando um movimento, não aceita novo input
         if (motion != null && motion.IsMoving)
         {
-            heldDir = Vector2Int.zero;     // evita repeat armar passo extra
+            heldDir = Vector2Int.zero; // evita repeat ficar armado
             return;
         }
 
-        // lê input e transforma pra 4 direções (sem diagonal)
+        // 3) Lê input bruto e converte para 4 direções (sem diagonal)
         Vector2 v = moveAction.ReadValue<Vector2>();
         Vector2Int rawDir = Vector2Int.zero;
+
         if (Mathf.Abs(v.x) > Mathf.Abs(v.y))
             rawDir = new Vector2Int((int)Mathf.Sign(v.x), 0);
         else if (Mathf.Abs(v.y) > 0f)
             rawDir = new Vector2Int(0, (int)Mathf.Sign(v.y));
 
+        // 4) Modo sem repeat → 1 toque = 1 passo
         if (!enableRepeat)
         {
-            // 1 toque = 1 passo
             if (rawDir != Vector2Int.zero && heldDir == Vector2Int.zero)
-                TryStep(rawDir);
+                TryStep(rawDir);   // só dispara no "edge" do input
+
             heldDir = rawDir;
             return;
         }
 
-        // com repeat
+        // 5) Modo com repeat (segurar direção faz andar sozinho)
         if (rawDir != Vector2Int.zero)
         {
             bool justPressed = (heldDir == Vector2Int.zero) || (rawDir != heldDir);
+
             if (justPressed || Time.time >= nextRepeatTime)
             {
                 TryStep(rawDir);
+
+                // Primeiro passo tem delay maior, depois entra no intervalo fixo
                 nextRepeatTime = Time.time + (justPressed ? firstRepeatDelay : repeatInterval);
                 heldDir = rawDir;
             }
         }
         else
         {
+            // Soltou input → para repeat
             heldDir = Vector2Int.zero;
         }
     }
 
+    // Verifica se qualquer Box ainda está em movimento (lerp)
     private bool AnyBoxIsMoving()
     {
         var motions = FindObjectsOfType<BoxLerpMotion>();
-        foreach (var m in motions) if (m != null && m.IsMoving) return true;
+        foreach (var m in motions)
+            if (m != null && m.IsMoving) return true;
+
         return false;
     }
 
-    // check se o goal é a célula alvo
+    // Checa se uma célula de grid é um Goal
     private bool IsGoalCell(Vector2Int gridCell)
     {
         // 1) Tenta achar por física (se Goal tiver Collider2D)
@@ -168,32 +182,38 @@ public class PlayerMover : MonoBehaviour
         return false;
     }
 
+    // Checagem de estado de UNDO para UI/botões
     public bool CanUndoNow()
     {
-        if (!enabled) return false;                          // pausado → PlayerMover desabilitado
-        if (motion != null && motion.IsMoving) return false; // lerp do player
+        if (!enabled) return false;                          // se PlayerMover está desativado (pausa, etc.)
+        if (motion != null && motion.IsMoving) return false; // player animando
         var boxes = FindObjectsOfType<BoxLerpMotion>();
-        foreach (var b in boxes) if (b != null && b.IsMoving) return false; // lerp de box
+        foreach (var b in boxes)
+            if (b != null && b.IsMoving) return false;       // caixa animando
+
         return history.Count > 0;
     }
 
+    // Chamado pela UI para tentar desfazer via botão
     public void TryUndoFromUI()
     {
         if (!CanUndoNow()) return;
+
         UndoLast();
         heldDir = Vector2Int.zero;
-        nextRepeatTime = Time.time + firstRepeatDelay; // evita “andar sozinho” depois do undo
+        nextRepeatTime = Time.time + firstRepeatDelay; // evita andar sozinho depois do undo
     }
 
-    // movimenta 1 célula, bloqueia se parede, empurra caixa se atrás estiver livre
+    // Movimenta 1 célula: bloqueia se parede; empurra caixa se atrás estiver livre
     private void TryStep(Vector2Int dir)
     {
         if (motion != null && motion.IsMoving) return;
+
         Vector2Int target = gridPos + dir;
-        bridge?.SetDirection(dir);
+        bridge?.SetDirection(dir); // informa direção pro Animator
         Vector2 worldTarget = GridToWorld(target);
 
-        // bounds bloquear player andando
+        // 1) Verifica Bounds via LevelManager (não deixa sair da área válida)
         var lm = LevelManager.Instance;
         bool hasBounds = (lm != null && lm.CurrentBounds != null);
         if (hasBounds && !lm.InsideBounds(worldTarget))
@@ -201,44 +221,45 @@ public class PlayerMover : MonoBehaviour
             return;
         }
 
+        // 2) Verifica colisão na célula alvo usando LayerMask sólido
         if (solidMask.value != 0)
         {
-            // ocupante no CENTRO da célula destino?
             var hit = Physics2D.OverlapPoint(worldTarget, solidMask);
             if (hit != null)
             {
-                // acertou caixa?
+                // Tentativa de empurrar caixa
                 var box = hit.GetComponent<BoxIdentifier>() ?? hit.GetComponentInParent<BoxIdentifier>();
 
-                // parede/qualquer sólido não-caixa -> bloqueia
+                // Se não é caixa → sólido puro (parede), bloqueia
                 if (box == null)
                 {
                     return;
                 }
 
-                // tentar empurrar a caixa, célula ATRÁS dela precisa estar livre
+                // Cálculo da célula atrás da caixa (onde ela vai ser empurrada)
                 Vector2Int boxGrid = WorldToGrid(box.transform.position);
                 Vector2Int boxTarget = boxGrid + dir;
                 Vector2 worldBoxTarget = GridToWorld(boxTarget);
 
-                // bloqueio de empurrar box através de BOUNDS
+                // 2.1) Não deixa empurrar caixa para fora dos Bounds
                 if (hasBounds && !lm.InsideBounds(worldBoxTarget))
                 {
                     return;
                 }
 
-                // checa ocupantes atrás, ignorando a PRÓPRIA caixa
+                // 2.2) Checa se célula atrás da caixa está livre (ignorando a própria caixa)
                 var hitsBehind = Physics2D.OverlapPointAll(worldBoxTarget, solidMask);
                 bool behindBlocked = false;
                 foreach (var h in hitsBehind)
                 {
                     if (h == null) continue;
                     if (h.transform == box.transform || h.transform.IsChildOf(box.transform)) continue;
-                    behindBlocked = true; break;
+                    behindBlocked = true;
+                    break;
                 }
                 if (behindBlocked) return;
 
-                // registra no histórico (para UNDO)
+                // 3) Registra movimento no histórico (para UNDO)
                 history.Add(new MoveRecord
                 {
                     playerFrom = gridPos,
@@ -248,20 +269,20 @@ public class PlayerMover : MonoBehaviour
                     boxTo = boxTarget
                 });
 
-                // empurra a caixa com LERP e move o player com LERP (sincronizados)
+                // 4) Empurra caixa (com LERP) e move player (com LERP) de forma sincronizada
                 var boxMotion = box.GetComponent<BoxLerpMotion>();
                 gridPos = target;
 
-                // player move
+                // Player move (com animação de "andando")
                 bridge?.SetMoving(true);
                 StartCoroutine(motion.MoveBy(dir, () => bridge.SetMoving(false)));
 
-                // caixa move
+                // Caixa move
                 if (boxMotion != null)
                 {
                     StartCoroutine(boxMotion.MoveTo(worldBoxTarget, () =>
                     {
-                        // >>> (A) AQUI: terminou o lerp da Box
+                        // Ao terminar o lerp da Box, atualiza estado de goal
                         bool onGoal = IsGoalCell(WorldToGrid(worldBoxTarget));
                         var goalState = box.GetComponent<BoxGoalState>();
                         if (goalState != null) goalState.SetOnGoal(onGoal);
@@ -271,7 +292,7 @@ public class PlayerMover : MonoBehaviour
                 }
                 else
                 {
-                    // fallback (sem BoxLerpMotion)
+                    // Fallback sem BoxLerpMotion: teleporta
                     box.transform.position = worldBoxTarget;
                     bool onGoal = IsGoalCell(WorldToGrid(worldBoxTarget));
                     var goalState = box.GetComponent<BoxGoalState>();
@@ -279,17 +300,17 @@ public class PlayerMover : MonoBehaviour
                     GameEvents.RaiseGoalsMaybeChanged();
                 }
 
-                // feedback “push”
+                // Feedback de “empurrando”
                 StartCoroutine(bridge.PulsePush(0.15f));
 
-                // métricas
+                // Eventos de telemetria/métrica
                 GameEvents.RaiseMove();
                 GameEvents.RaisePush();
                 return;
             }
         }
 
-        // player livre -> passo simples + registra para UNDO (com LERP no player)
+        // 3) Se célula destino está livre → passo simples + histórico para UNDO
         history.Add(new MoveRecord { playerFrom = gridPos, playerTo = target, box = null });
         gridPos = target;
 
@@ -299,7 +320,7 @@ public class PlayerMover : MonoBehaviour
         GameEvents.RaiseMove();
     }
 
-    // desfaz o último passo (e o empurrão, se houve)
+    // Desfaz o último passo (e o empurrão, se houve)
     private void UndoLast()
     {
         if (history.Count == 0)
@@ -311,7 +332,7 @@ public class PlayerMover : MonoBehaviour
         var rec = history[i];
         history.RemoveAt(i);
 
-        // --- PLAYER: cancela lerp e "snapa" ---
+        // --- PLAYER: cancela LERP e "snapa" ---
         gridPos = rec.playerFrom;
         Vector3 playerTarget = GridToWorld(gridPos);
 
@@ -320,6 +341,7 @@ public class PlayerMover : MonoBehaviour
 
         bridge?.ResetAll();
 
+        // --- BOX (se houve push nesse movimento) ---
         if (rec.box != null && rec.box.gameObject != null)
         {
             var target = GridToWorld(rec.boxFrom);
@@ -328,16 +350,20 @@ public class PlayerMover : MonoBehaviour
             if (boxMotion != null) boxMotion.CancelAndSnap(target);
             else rec.box.transform.position = target;
 
-            // atualiza o highlight depois do Undo
+            // Atualiza o highlight/goals após o Undo
             var goalState = rec.box.GetComponent<BoxGoalState>();
             if (goalState != null) goalState.SetOnGoal(IsGoalCell(rec.boxFrom));
         }
+
+        // Garante que física/transform estejam sincronizados
         Physics2D.SyncTransforms();
+
         GameEvents.RaiseUndo();
         GameEvents.RaiseGoalsMaybeChanged();
+
+        // Reset do repeat depois do undo
         heldDir = Vector2Int.zero;
         nextRepeatTime = Time.time + firstRepeatDelay;
-        
     }
 
     // ---- utilitários de gridPos ----
@@ -361,13 +387,11 @@ public class PlayerMover : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-
-    // desenha a célula atual (só pra referência visual)
+    // Desenha a célula atual do player no Scene View quando selecionado
     private void OnDrawGizmosSelected()
     {
         if (solidMask.value == 0) return;
         Gizmos.color = Color.cyan;
-
         Gizmos.DrawWireCube(transform.position, Vector3.one * 0.9f);
     }
 #endif

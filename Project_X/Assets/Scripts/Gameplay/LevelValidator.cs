@@ -5,17 +5,18 @@ using UnityEngine;
 /// - Checa se tem Bounds com BoxCollider2D.
 /// - Checa se tem Goals e Boxes suficientes.
 /// - Checa se Goals/Boxes estão dentro dos Bounds.
-/// - Checa se Goals/Boxes estão alinhados ao grid local (multiplo de cellSize).
-/// - Opcional: faz snap pro grid local (localPosition) em todos os filhos (exceto root e Bounds).
-/// 
+/// - Checa se Goals/Boxes estão alinhados ao grid local (múltiplo de cellSize).
+/// - Opcional: faz snap pro grid local em todos os filhos (exceto root e Bounds).
+///
 /// Uso:
-/// 1) Coloque este componente na raiz do prefab de level (mesmo GO que tem "Bounds" como filho).
-/// 2) No Inspector, use o menu de contexto "Validate Level" (···) ou o botão do inspector se você quiser expor.
+/// 1) Coloque este componente na raiz do prefab de level.
+/// 2) No Inspector, use o ContextMenu "Validate Level"
+///    ou o botão equivalente, se você expor.
 /// </summary>
 public class LevelValidator : MonoBehaviour
 {
     [Header("Grid")]
-    [Tooltip("Tamanho da célula em unidades (deve bater com o cellSize do Player).")]
+    [Tooltip("Tamanho da célula em unidades (deve bater com o cellSize do Player/Level).")]
     public float cellSize = 1f;
 
     [Tooltip("Se true, o ValidateLevel também faz snap pro grid local (use com cuidado).")]
@@ -27,6 +28,7 @@ public class LevelValidator : MonoBehaviour
 
     // ---------- MENU DE CONTEXTO ----------
 
+    // Entrada principal: valida toda a estrutura do level.
     [ContextMenu("Validate Level")]
     public void ValidateLevel()
     {
@@ -36,7 +38,7 @@ public class LevelValidator : MonoBehaviour
         if (verbose)
             Debug.Log($"[LevelValidator] Validando level '{name}'...");
 
-        // 1) Bounds
+        // 1) Verifica objeto Bounds + BoxCollider2D
         var boundsTf = transform.Find("Bounds");
         BoxCollider2D boundsCol = null;
         if (boundsTf == null)
@@ -54,7 +56,7 @@ public class LevelValidator : MonoBehaviour
             }
         }
 
-        // 2) Goals e Boxes
+        // 2) Goals e Boxes existentes
         var goals = GetComponentsInChildren<GoalIdentifier>(true);
         var boxes = GetComponentsInChildren<BoxIdentifier>(true);
 
@@ -66,26 +68,30 @@ public class LevelValidator : MonoBehaviour
 
         if (boxes.Length == 0)
         {
-            Debug.LogWarning($"[LevelValidator] ({name}) Nenhum BoxIdentifier encontrado. " +
-                             "É um level sem caixas? (ok se for proposital).");
+            Debug.LogWarning(
+                $"[LevelValidator] ({name}) Nenhum BoxIdentifier encontrado. " +
+                "É um level sem caixas? (ok se for proposital).");
             warnings++;
         }
 
+        // Mais caixas que goals pode ser intencional, mas avisa.
         if (goals.Length > 0 && boxes.Length > goals.Length)
         {
-            Debug.LogWarning($"[LevelValidator] ({name}) boxes({boxes.Length}) > goals({goals.Length}). " +
-                             "Pode ser ok, mas confira se é intencional.");
+            Debug.LogWarning(
+                $"[LevelValidator] ({name}) boxes({boxes.Length}) > goals({goals.Length}). " +
+                "Pode ser ok, mas confira se é intencional.");
             warnings++;
         }
 
-        // 3) Fora dos Bounds
+        // 3) Checa se Boxes/Goals estão dentro dos Bounds
         if (boundsCol != null)
         {
             foreach (var box in boxes)
             {
                 if (!boundsCol.OverlapPoint(box.transform.position))
                 {
-                    Debug.LogWarning($"[LevelValidator] ({name}) Box '{box.name}' está fora dos Bounds.");
+                    Debug.LogWarning(
+                        $"[LevelValidator] ({name}) Box '{box.name}' está fora dos Bounds.");
                     warnings++;
                 }
             }
@@ -94,23 +100,25 @@ public class LevelValidator : MonoBehaviour
             {
                 if (!boundsCol.OverlapPoint(g.transform.position))
                 {
-                    Debug.LogWarning($"[LevelValidator] ({name}) Goal '{g.name}' está fora dos Bounds.");
+                    Debug.LogWarning(
+                        $"[LevelValidator] ({name}) Goal '{g.name}' está fora dos Bounds.");
                     warnings++;
                 }
             }
         }
 
-        // 4) Checagem de alinhamento no grid local (NOVA)
+        // 4) Checagem de alinhamento com o grid local (não altera nada)
         int misaligned = CheckGridAlignment(goals, boxes);
         warnings += misaligned;
 
-        // 5) Snap opcional pro grid local
+        // 5) Snap opcional pro grid
         if (snapToGridOnValidate && cellSize > 0f)
         {
             int snapped = SnapChildrenToGrid();
             if (snapped > 0)
             {
-                Debug.Log($"[LevelValidator] ({name}) SnapToGrid aplicado em {snapped} objetos (cellSize={cellSize}).");
+                Debug.Log(
+                    $"[LevelValidator] ({name}) SnapToGrid aplicado em {snapped} objetos (cellSize={cellSize}).");
             }
         }
 
@@ -125,25 +133,27 @@ public class LevelValidator : MonoBehaviour
         }
     }
 
+    // Atalho pra apenas snapar pro grid, sem fazer a validação completa.
     [ContextMenu("Snap Children To Grid (only)")]
     public void ContextSnapChildrenToGrid()
     {
         int count = SnapChildrenToGrid();
-        Debug.Log($"[LevelValidator] ({name}) SnapToGrid manual: {count} objetos ajustados (cellSize={cellSize}).");
+        Debug.Log(
+            $"[LevelValidator] ({name}) SnapToGrid manual: {count} objetos ajustados (cellSize={cellSize}).");
     }
 
     // ---------- IMPLEMENTAÇÃO ----------
 
     /// <summary>
-    /// Checa se Goals e Boxes estão alinhados ao grid local (multiplo de cellSize).
-    /// Não altera nada, só gera warnings.
+    /// Checa se Goals e Boxes estão alinhados ao grid local (múltiplo de cellSize).
+    /// Não altera nada, apenas gera warnings.
     /// </summary>
     int CheckGridAlignment(GoalIdentifier[] goals, BoxIdentifier[] boxes)
     {
         if (cellSize <= 0f) return 0;
 
         int warnings = 0;
-        float eps = 0.01f; // tolerância
+        float eps = 0.01f; // tolerância pra float
 
         void CheckTransform(Transform t, string label)
         {
@@ -180,7 +190,7 @@ public class LevelValidator : MonoBehaviour
 
     /// <summary>
     /// Faz snap de TODOS os filhos ao grid local, exceto:
-    /// - o próprio root
+    /// - o próprio root do level
     /// - o objeto "Bounds"
     /// </summary>
     int SnapChildrenToGrid()
@@ -191,21 +201,21 @@ public class LevelValidator : MonoBehaviour
 
         foreach (Transform child in transform.GetComponentsInChildren<Transform>(true))
         {
-            // pula o root do level
+            // Pula o root do level
             if (child == transform)
                 continue;
 
-            // pula o Bounds (não queremos mexer no colliderzão)
+            // Pula o Bounds (não queremos mexer no colliderzão)
             if (child.name == "Bounds")
                 continue;
 
             var local = child.localPosition;
 
-            // converte pra "coordenada de grid"
+            // Converte para “coordenadas de grid”
             float gx = local.x / cellSize;
             float gy = local.y / cellSize;
 
-            // arredonda tipo 4.97 -> 5, 3.06 -> 3
+            // Arredonda para o tile mais próximo
             gx = Mathf.Round(gx);
             gy = Mathf.Round(gy);
 

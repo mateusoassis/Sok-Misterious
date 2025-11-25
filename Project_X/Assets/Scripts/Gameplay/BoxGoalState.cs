@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class BoxGoalState : MonoBehaviour
 {
+    // Indica se a caixa está posicionada sobre um Goal
     public bool IsOnGoal { get; private set; }
 
     [Header("Sprite da Caixa (Patinho)")]
@@ -16,21 +17,24 @@ public class BoxGoalState : MonoBehaviour
 
     void Awake()
     {
-        // tenta achar o SR da box sozinho, se não foi arrastado
+        // Se o SpriteRenderer não for arrastado no Inspector, tenta encontrá-lo automaticamente
         if (!boxRenderer)
         {
+            // 1) Tenta encontrar um child específico chamado "BoxSprite"
             var child = transform.Find("BoxSprite");
             if (child) boxRenderer = child.GetComponent<SpriteRenderer>();
 
+            // 2) Se ainda não encontrou, pega o primeiro SpriteRenderer em filhos
             if (!boxRenderer)
                 boxRenderer = GetComponentInChildren<SpriteRenderer>(true);
         }
 
-        // se não setou normalSprite no inspector, usa o sprite atual como "normal"
+        // Se não houver sprite "normal" definido, usa o sprite atual como padrão
         if (boxRenderer && normalSprite == null)
             normalSprite = boxRenderer.sprite;
     }
 
+    // Atualiza IsOnGoal e troca o sprite conforme o estado
     public void SetOnGoal(bool v)
     {
         IsOnGoal = v;
@@ -38,17 +42,19 @@ public class BoxGoalState : MonoBehaviour
         if (!boxRenderer)
             return;
 
+        // Se está em goal, usa o sprite de "caixa encaixada"
         if (v && onGoalSprite != null)
         {
             boxRenderer.sprite = onGoalSprite;
         }
+        // Se não está, volta para o sprite normal
         else if (!v && normalSprite != null)
         {
             boxRenderer.sprite = normalSprite;
         }
     }
 
-    // se em algum momento você mudar IsOnGoal manualmente e quiser re-aplicar visual:
+    // Reaplica o estado visual caso algo tenha mudado externamente
     public void Refresh()
     {
         SetOnGoal(IsOnGoal);
