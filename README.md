@@ -1,3 +1,5 @@
+## README Variante 1
+
 # Sokoban (Unity · Xbox · 720p · Pixel Art)
 
 Um puzzle de grade 1×1 no estilo **Sokoban**, com foco em UX limpa, progresso simples por **nível mais alto desbloqueado** e telemetria básica pensada para **conquistas (Xbox)** no futuro.
@@ -81,17 +83,46 @@ Um puzzle de grade 1×1 no estilo **Sokoban**, com foco em UX limpa, progresso s
 
 ### Estrutura de Projeto
 ```
-/Assets
-  /Prefabs
-    /Levels            <- prefabs de nível (Level_01, Level_02, ...)
-    Managers.prefab    <- LevelManager, SaveManager, etc.
-    HUD_Canvas.prefab  <- HUD / Victory / Pause
-  /Scripts
-    /Core
-    /Gameplay
-    /UI
-    /Dev
-    /Editor            <- ferramentas de validação em lote
+Assets/
+│
+├── Animation/
+│   └── Player/
+│
+├── Art/
+│   ├── Characters/
+│   ├── Fonts/
+│   ├── Placeholders/
+│   ├── Tiles/
+│   └── UI/
+│
+├── Audio/
+│   ├── Music/
+│   └── SFX/
+│
+├── Data/
+│
+├── Editor/
+│
+├── Levels/
+│
+├── Prefabs/
+│   ├── Levels/
+│   ├── Player/
+│   ├── Tiles/
+│   └── Scenes/
+│
+├── Presets/
+│
+├── Scripts/
+│   ├── Boot/            ← inicialização, LaunchArgs, Loaders
+│   ├── Core/            ← sistemas centrais (LevelList, LevelManager, GameEvents…)
+│   ├── Data/            ← estruturas de dados, LevelStats, SaveManager…
+│   ├── Gameplay/        ← PlayerMover, Box, Goals, WinChecker…
+│   ├── Systems/         ← Achievements, DeviTools, Snapper…
+│   └── TestStuff/       ← scripts auxiliares, debug, ferramentas internas
+│       └── UI/
+│
+└── UI/ (não existe como pasta, UI fica espalhada entre Prefabs + Scripts/UI)
 ```
 
 ### Sistemas
@@ -256,6 +287,7 @@ Um puzzle de grade 1×1 no estilo **Sokoban**, com foco em UX limpa, progresso s
 - [ ] Confirmar **solidMask** uniforme para Player/WinChecker/Boxes.
 - [ ] Exportar cenas/prefabs com debug buttons apenas para _Dev_ (símbolo de compilação).
 - [ ] Criar `/Docs/Scripts` e colar cada script com descrição (próxima etapa).
+- [ ] Integrar assets de tileset já entregues por artista.
 
 ---
 
