@@ -154,25 +154,25 @@ public class LevelGridConfig : MonoBehaviour
         Debug.Log("[LevelGridConfig] SnapChildrenToGrid: finalizado.");
     }
 
-#if UNITY_EDITOR
-    private void OnDrawGizmos()
-    {
-        // Desenha o retângulo da área do level no Editor
-        Gizmos.matrix = transform.localToWorldMatrix;
+// #if UNITY_EDITOR
+//     private void OnDrawGizmos()
+//     {
+//         // Desenha o retângulo da área do level no Editor
+//         Gizmos.matrix = transform.localToWorldMatrix;
 
-        Gizmos.color = new Color(0f, 1f, 0.6f, 0.25f);
-        var size = new Vector3(Width * CellSize, Height * CellSize, 0f);
-        var center = new Vector3(
-            ((Width - 1) * 0.5f) * CellSize,
-            ((Height - 1) * 0.5f) * CellSize,
-            0f
-        );
-        Gizmos.DrawCube(center, size);
+//         Gizmos.color = new Color(0f, 1f, 0.6f, 0.25f);
+//         var size = new Vector3(Width * CellSize, Height * CellSize, 0f);
+//         var center = new Vector3(
+//             ((Width - 1) * 0.5f) * CellSize,
+//             ((Height - 1) * 0.5f) * CellSize,
+//             0f
+//         );
+//         Gizmos.DrawCube(center, size);
 
-        // eixos visuais
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(Vector3.zero, new Vector3(Width * CellSize, 0f, 0f));
-        Gizmos.DrawLine(Vector3.zero, new Vector3(0f, Height * CellSize, 0f));
-    }
-#endif
+//         // eixos visuais
+//         Gizmos.color = Color.yellow;
+//         Gizmos.DrawLine(Vector3.zero, new Vector3(Width * CellSize, 0f, 0f));
+//         Gizmos.DrawLine(Vector3.zero, new Vector3(0f, Height * CellSize, 0f));
+//     }
+// #endif
 }

@@ -1,6 +1,6 @@
 ## README Variante 1
 
-# Sokoban (Unity · Xbox · 720p · Pixel Art)
+# Sokoban (Unity 6000.0.58f1 · Xbox · 720p · Pixel Art)
 
 Um puzzle de grade 1×1 no estilo **Sokoban**, com foco em UX limpa, progresso simples por **nível mais alto desbloqueado** e telemetria básica pensada para **conquistas (Xbox)** no futuro.
 
@@ -27,6 +27,7 @@ Um puzzle de grade 1×1 no estilo **Sokoban**, com foco em UX limpa, progresso s
 - [Ferramentas de Dev](#ferramentas-de-dev)
 - [Arte & Placeholders](#arte--placeholders)
 - [Como Rodar](#como-rodar)
+- [Como Editar / Criar Fases](#como-editar--criar-fases-mini-tutorial-para-gd)
 - [Roadmap](#roadmap)
 - [To-Do (curto prazo)](#to-do-curto-prazo)
 - [Issues Conhecidas](#issues-conhecidas)
@@ -121,6 +122,8 @@ Assets/
 │   ├── Systems/         ← Achievements, DeviTools, Snapper…
 │   └── TestStuff/       ← scripts auxiliares, debug, ferramentas internas
 │       └── UI/
+│
+│── Tiles/
 │
 └── UI/ (não existe como pasta, UI fica espalhada entre Prefabs + Scripts/UI)
 ```
@@ -260,6 +263,140 @@ Assets/
 - **Unity**: versão do projeto (2022/2023 LTS — ajustar conforme repo).
 - Abrir `00_MainMenu` e dar Play.
 - Construção: PC Standalone durante dev; alvo final Xbox (720p).
+
+---
+
+## Como Editar / Criar Fases (Mini-tutorial para GD)
+
+Os layouts de cenário são feitos com **Tilemap** a partir de um prefab de grid base.  
+Nada de grid vem “pronto” dentro dos levels – o GD é quem adiciona o grid em cada fase.
+
+### Onde estão as coisas
+
+- **Levels (fases):**
+  ```
+  Assets/Prefabs/Levels/
+  ```
+
+  Exemplos: `Level_01`, `Level_02`, etc.  
+  Cada level é um prefab com algo como:
+
+  ```
+  LevelRoot
+     └── Bounds (BoxCollider2D)
+  ```
+
+- **Grid base + Tilemap (pra pintar):**
+  ```
+  Assets/Prefabs/Tiles/Prefab_Base_Grid
+  ```
+
+  Esse prefab contém:
+
+  ```
+  Prefab_Base_Grid
+     ├── Grid
+     │    └── Tilemap_Palette_Target   ← onde você vai pintar os tiles
+     └── (outros componentes auxiliares, se houver)
+  ```
+
+- **Tile Palette / Tiles:**
+  - Palette configurada para o projeto (pixel art 32×32)
+  - Tiles salvos em pastas de tiles (ex.: `Art/Tiles` ou `Tiles/...`)
+
+---
+
+### Passo a passo (GD)
+
+#### 1) Abrir um level
+
+1. No Project, vá em:
+   ```
+   Assets/Prefabs/Levels/
+   ```
+2. Dê **duplo clique** no prefab do level que você quer editar  
+   **ou** arraste o prefab para a cena.
+
+> O layout (desenho dos tiles) será salvo **na cena**, não no prefab base.
+
+---
+
+#### 2) Adicionar o Grid base (se ainda não tiver)
+
+1. No Project, vá em:
+   ```
+   Assets/Prefabs/Tiles/Prefab_Base_Grid
+   ```
+2. Arraste o `Prefab_Base_Grid` para dentro do `LevelRoot` na Hierarchy.
+3. Garanta que o objeto `Prefab_Base_Grid` (ou `Grid`) esteja em `(0, 0, 0)`,
+   a menos que a fase peça um offset específico.
+
+Agora o level deve ficar algo assim:
+
+```text
+LevelRoot
+   ├── Bounds (BoxCollider2D)
+   └── Prefab_Base_Grid (instância)
+        └── Grid
+             └── Tilemap_Palette_Target
+```
+
+> **Importante:** o GD **não precisa** dar *Apply* neste prefab. O grid base é só uma “ferramenta” para pintar o mapa dentro de cada fase.
+
+---
+
+#### 3) Abrir a Tile Palette
+
+1. Selecione o objeto `Tilemap_Palette_Target` na Hierarchy (dentro do `Grid`).
+2. No Inspector, clique em **Open Tile Palette**.
+
+Se o botão não aparecer, você também pode abrir pela barra de menu:
+
+```text
+Window → 2D → Tile Palette
+```
+
+Na janela da Tile Palette, selecione a palette do projeto (se ainda não estiver selecionada).
+
+---
+
+#### 4) Pintar o cenário
+
+1. Na janela **Tile Palette**, clique no tile que você quer usar.
+2. Com o `Tilemap_Palette_Target` selecionado, use o brush na **Scene View**:
+
+   - **Botão esquerdo do mouse** → pinta o tile.
+   - **Botão direito** → apaga o tile.
+
+O Unity já faz o **snap automático pro grid** (32×32 / 1×1 unidade).
+
+> Dica: se pintar errado, use `Ctrl+Z` ou apague com o brush mesmo.
+
+---
+
+#### 5) Salvar
+
+- Só precisa **salvar a cena** (`Ctrl+S`).  
+- **Não clique em Apply** no prefab do level a menos que você tenha alterado só estrutura (ex.: adicionou/removeu algum objeto fixo que deve ser igual em todos os níveis).  
+- O layout de tiles é específico daquela cena/level.
+
+---
+
+#### 6) Criar um level novo
+
+1. Duplique um prefab existente em:
+   ```
+   Assets/Prefabs/Levels/
+   ```
+2. Renomeie (ex.: `Level_03`, `Level_04`).
+3. Abra o novo level (duplo clique ou arrastar para cena).
+4. Adicione o `Prefab_Base_Grid` (se ainda não estiver presente).
+5. Abra a Tile Palette e **pinte seu layout** no `Tilemap_Palette_Target`.
+6. Se quiser, rode a validação:
+
+   ```text
+   Tools → Levels → Validate Level
+   ```
 
 ---
 
